@@ -24,11 +24,6 @@ Open questions for the professor: see `QUESTIONS.md`.
 - Walk-forward validation only — no random train/test splits
 - MAE is the primary evaluation metric; report all four (MAE, RMSE, MAPE, SMAPE)
 
-## Team
-
-- Lead developer: Dima (professional C++ dev, experienced with software architecture)
-- Teammates: students learning git and Python — own data fetching, evaluation, presentations
-
 ## Milestones
 
 - **2026-05-12**: working end-to-end demo (download → merge → train → predict → evaluate)
