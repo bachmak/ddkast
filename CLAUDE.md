@@ -36,6 +36,8 @@ Open questions for the professor: see `QUESTIONS.md`.
 - Parquet storage decoupled behind `DataStore` protocol
 - Walk-forward validation only — no random train/test splits
 - MAE is the primary evaluation metric; report all four (MAE, RMSE, MAPE, SMAPE)
+- Two benchmarks in `evaluate`: 7-day seasonal naive and the ENTSO-E published day-ahead forecast
+- Cyclical encoding defaults to Fourier (sine/cosine); RBF decomposition is a planned Milestone 2 alternative to evaluate
 
 ## Milestones
 

@@ -262,7 +262,7 @@ The result is a single, clean, continuous time series written to `data/processed
 Reads the processed dataset, calls `preprocessing/features.py` to add:
 - **Lag features**: load 1h, 24h, and 168h (1 week) ago
 - **Rolling statistics**: 24h and 168h rolling mean and standard deviation
-- **Fourier cyclical encodings**: sine/cosine pairs for daily, weekly, and annual seasonality
+- **Cyclical encodings**: sine/cosine Fourier pairs for daily, weekly, and annual seasonality (RBF decomposition is a planned alternative — see Milestone 2)
 - **Calendar features**: hour of day, day of week, month, week of year
 - **Holiday indicators**: German public holidays via the `holidays` library
 
@@ -279,18 +279,17 @@ Output is written to `data/processed/forecast.parquet`.
 Loads the forecast and the ground truth from `data/processed/`, computes all four metrics, and prints a formatted comparison table:
 
 ```
-┌─────────┬───────────┬────────────┐
-│ Metric  │ Baseline  │ Model      │
-├─────────┼───────────┼────────────┤
-│ MAE     │ 1 842 MW  │   943 MW   │
-│ RMSE    │ 2 310 MW  │ 1 201 MW   │
-│ MAPE    │   4.2 %   │   2.1 %    │
-│ SMAPE   │   4.1 %   │   2.0 %    │
-└─────────┴───────────┴────────────┘
+┌─────────┬───────────┬──────────────┬────────────┐
+│ Metric  │ Naive     │ ENTSO-E DAF  │ Model      │
+├─────────┼───────────┼──────────────┼────────────┤
+│ MAE     │ 1 842 MW  │   1 100 MW   │   943 MW   │
+│ RMSE    │ 2 310 MW  │   1 420 MW   │ 1 201 MW   │
+│ MAPE    │   4.2 %   │     2.5 %    │   2.1 %    │
+│ SMAPE   │   4.1 %   │     2.4 %    │   2.0 %    │
+└─────────┴───────────┴──────────────┴────────────┘
 ```
 
-The **baseline** is always the 7-day seasonal naive forecast (predict = same hour last week).
-All model results are reported relative to this baseline.
+Results are reported against two benchmarks: the 7-day seasonal naive forecast and the ENTSO-E published day-ahead forecast.
 
 ---
 
@@ -333,6 +332,17 @@ All four metrics are computed for both the model and the baseline on every evalu
 | **SMAPE** | mean(2|actual − predicted| / (|actual| + |predicted|)) × 100 | Symmetric version of MAPE; avoids asymmetry for over/under-forecasting |
 
 MAE is the primary metric because it is directly interpretable (error in megawatts), matches the metric used in the reference project, and is likely the metric the professor uses for team comparison.
+
+### Benchmarks
+
+Two benchmarks are computed on every evaluation run:
+
+| Benchmark | Description |
+|---|---|
+| **7-day naive** | `prediction[t] = actual[t − 168h]` — the minimum bar any model must beat |
+| **ENTSO-E day-ahead** | The official day-ahead load forecast published by ENTSO-E alongside the actual load data — a strong external benchmark that reflects what professional forecasters achieve |
+
+Beating the ENTSO-E forecast consistently would be a meaningful result; matching it is already competitive.
 
 ### Walk-forward validation
 
@@ -486,11 +496,12 @@ CI must pass before a branch is merged.
 
 ### Milestone 2 — June 23 (2nd Interim Presentation)
 
-- [ ] `preprocessing/features.py` — full feature set (lags, rolling, Fourier, calendar, holidays)
-- [ ] Hyperparameter optimisation via `spotforecast2` (SpotOptim/Bayesian search)
+- [ ] `preprocessing/features.py` — full feature set (lags, rolling, calendar, holidays) with Fourier cyclical encodings; evaluate RBF decomposition as alternative
+- [ ] Hyperparameter optimisation via `spotforecast2` (SpotOptim/Bayesian search), including lag count
 - [ ] SHAP explainability (feature importance)
 - [ ] Walk-forward validation
 - [ ] Periodogram analysis for seasonality detection (notebook)
+- [ ] ENTSO-E day-ahead forecast as secondary benchmark in `evaluate`
 
 ### Milestone 3 — July 21 (Final Presentation)
 
