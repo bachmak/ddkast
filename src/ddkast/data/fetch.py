@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pandas as pd
-from entsoe import EntsoePandasClient
+from entsoe.entsoe import EntsoePandasClient
 
 
 def fetch_load(
@@ -14,9 +14,9 @@ def fetch_load(
 ) -> pd.DataFrame:
     """Fetch actual total load from ENTSO-E for the given country and time range."""
     client = EntsoePandasClient(api_key=api_key)
-    series = client.query_load(
+    raw = client.query_load(
         country_code,
         start=pd.Timestamp(start, tz="UTC"),
         end=pd.Timestamp(end, tz="UTC"),
     )
-    return series.to_frame(name="load_mw")
+    return raw.rename(columns={"Actual Load": "load_mw"})
