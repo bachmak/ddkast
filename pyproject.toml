@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ddkast"
+version = "0.1.0"
+description = "Energy consumption forecasting for critical infrastructure"
+requires-python = ">=3.13"
+dependencies = [
+    "spotforecast2-safe",
+    "entsoe-py",
+    "pydantic-settings",
+    "typer[all]",
+    "rich",
+    "pandas",
+    "pyarrow",
+    "lightgbm",
+    "numpy",
+    "holidays",
+]
+
+[project.scripts]
+ddkast = "ddkast.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov",
+    "pyright",
+    "ruff",
+    "pre-commit",
+    "jupyter",
+    "ipykernel",
+    "pandas-stubs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ddkast"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

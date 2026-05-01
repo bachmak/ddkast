@@ -1,0 +1,28 @@
+# secrets
+.env
+
+# data and models — keep directory structure, ignore contents
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# tools
+.ruff_cache/
+.pytest_cache/
+.pyright/
+
+# notebooks
+notebooks/.ipynb_checkpoints/
+
+# os
+.DS_Store

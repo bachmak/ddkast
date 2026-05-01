@@ -1,0 +1,5 @@
+country_code = "DE_LU"
+horizon      = 24      # hours ahead to forecast
+resolution   = "1H"    # temporal resolution
+data_dir     = "data"
+models_dir   = "models"
