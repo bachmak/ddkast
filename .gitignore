@@ -26,3 +26,5 @@ notebooks/.ipynb_checkpoints/
 
 # os
 .DS_Store
+
+.idea
