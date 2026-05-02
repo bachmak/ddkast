@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tomllib
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -16,11 +17,40 @@ class Config(BaseSettings):
 
     entsoe_api_key: str
 
+    # --- shared ---
     country_code: str = "DE_LU"
     horizon: int = 24
-    resolution: str = "1H"
+    resolution: str = "1h"
     data_dir: Path = Path("data")
     models_dir: Path = Path("models")
+
+    # --- download ---
+    download_start: date = date(2022, 1, 1)
+    download_end: date = date(2026, 4, 30)
+
+    # --- merge / cleaning ---
+    outlier_iqr_multiplier: float = 3.0
+    max_interpolation_hours: int = 3
+
+    # --- features ---
+    # ISO 2-letter country code for holiday calendar (DE_LU zone → Germany holidays)
+    holiday_country_code: str = "DE"
+    rbf_periods_hour: int = 10
+    rbf_periods_dow: int = 7
+    rbf_periods_month: int = 6
+
+    # --- train ---
+    lags: int = 168
+    test_days: int = 30
+
+    # --- inter-stage filenames ---
+    raw_load_actual: str = "load_actual"
+    raw_load_forecast: str = "load_forecast"
+    processed_load: str = "load_clean"
+    processed_entso_forecast: str = "forecast_entso"
+    processed_test: str = "load_test"
+    processed_predictions: str = "load_predicted"
+    model_target: str = "load_mw"
 
     @property
     def raw_dir(self) -> Path:

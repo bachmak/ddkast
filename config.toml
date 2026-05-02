@@ -1,5 +1,33 @@
-country_code = "DE_LU"
-horizon      = 24      # hours ahead to forecast
-resolution   = "1H"    # temporal resolution
+# --- shared ---
+country_code = "DE_LU"  # ENTSO-E bidding zone
+horizon      = 24       # hours ahead to forecast
+resolution   = "1h"     # temporal resolution
 data_dir     = "data"
 models_dir   = "models"
+
+# --- download ---
+download_start = 2022-01-01
+download_end   = 2026-04-30
+
+# --- merge / cleaning ---
+outlier_iqr_multiplier  = 3.0
+max_interpolation_hours = 3
+
+# --- features ---
+holiday_country_code = "DE"  # ISO 2-letter code — DE_LU zone uses German holidays
+rbf_periods_hour     = 10
+rbf_periods_dow      = 7
+rbf_periods_month    = 6
+
+# --- train ---
+lags      = 168
+test_days = 30
+
+# --- inter-stage filenames ---
+raw_load_actual        = "load_actual"
+raw_load_forecast      = "load_forecast"
+processed_load         = "load_clean"
+processed_entso_forecast = "forecast_entso"
+processed_test         = "load_test"
+processed_predictions  = "load_predicted"
+model_target           = "load_mw"

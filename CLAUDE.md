@@ -34,10 +34,38 @@ Open questions for the professor: see `QUESTIONS.md`.
 ## Key decisions already made
 
 - Parquet storage decoupled behind `DataStore` protocol
-- Walk-forward validation only — no random train/test splits
 - MAE is the primary evaluation metric; report all four (MAE, RMSE, MAPE, SMAPE)
 - Two benchmarks in `evaluate`: 7-day seasonal naive and the ENTSO-E published day-ahead forecast
-- Cyclical encoding defaults to Fourier (sine/cosine); RBF decomposition is a planned Milestone 2 alternative to evaluate
+
+### Data
+
+- Download range: Jan 2022 – Apr 2026
+- Both actual load and ENTSO-E day-ahead forecast (DAF) are fetched in a single `download` pass and stored separately
+- Cleaning: IQR multiplier 3.0, max 3-hour linear interpolation; gaps longer than that cause the surrounding window to be rejected (fail-safe). Both values are configurable.
+- All inter-stage filenames (e.g. `raw_load_actual`, `processed_load`) are fields in `Config` — nothing hardcoded in pipeline or model code
+
+### Features
+
+- Cyclical encoding: `ExogBuilder` with RBF (`RepeatingBasisFunction`) from `spotforecast2-safe`. Fourier (sin/cos) is the planned M2 comparison, not the M1 default.
+- Rolling statistics (24h/168h mean and std) deferred to M2. With 168 lags, LightGBM captures this structure implicitly.
+- Calendar features (hour, day-of-week, month) and German public holidays via `ExogBuilder`. RBF basis function counts are configurable.
+
+### spotforecast2-safe API findings
+
+- `mark_outliers` / `get_outliers` use **IsolationForest**, not IQR. Use `manual_outlier_removal` with IQR-computed bounds (`Q1 - k*IQR`, `Q3 + k*IQR`) for deterministic, interpretable outlier handling.
+- `LinearlyInterpolateTS` has no `limit` parameter — use pandas `interpolate(method="linear", limit=N)` for gap-limited interpolation, then check for remaining NaN as the fail-safe step.
+- `remove_duplicate_timestamps` operates on a DataFrame where the timestamp is a **column** (named `"Time (UTC)"`), not a DatetimeIndex. Use `agg_and_resample_data` instead — it handles deduplication naturally via resampling.
+
+### Model
+
+- Use `ForecasterRecursive` directly (low-level class from `spotforecast2-safe`), **not** `ForecasterRecursiveModel`. The high-level wrapper does its own data loading that bypasses the `DataStore` abstraction.
+- Lags: `lags=168` contiguous (1 week) for M1. SHAP-driven refinement in M2 — long-range named lags (`[336, 720, 8760]`) only added if SHAP confirms their value.
+- Model persistence via `save_forecaster` / `get_last_model` from `spotforecast2_safe.manager.persistence` and `trainer`.
+
+### Validation
+
+- M1: single temporal split — train on all data except last `test_days` (default 30), evaluate on those last days
+- M2: full walk-forward (time-series cross-validation) replaces the single split
 
 ## Milestones
 
