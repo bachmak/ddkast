@@ -116,27 +116,31 @@ ddkast/
 │   ├── cli.py                   # typer entry point — thin
 │   ├── config.py                # pydantic-settings Config + load()
 │   ├── pipeline/
-│   │   ├── download.py          # stage 1: fetch raw data
-│   │   ├── merge.py             # stage 2: clean + combine
-│   │   ├── train.py             # stage 3: engineer features + fit model
+│   │   ├── download.py          # stage 1: fetch raw data (actual + DAF)
+│   │   ├── merge.py             # stage 2: clean + write processed data
+│   │   ├── train.py             # stage 3: split, fit model, persist
 │   │   ├── predict.py           # stage 4: load model + forecast
 │   │   └── evaluate.py          # stage 5: compute metrics + print report
 │   ├── data/
-│   │   ├── fetch.py             # ENTSO-E API wrapper (entsoe-py)
+│   │   ├── fetch.py             # ENTSO-E API wrappers (actual load + DAF)
 │   │   └── store.py             # DataStore protocol + ParquetStore
 │   ├── preprocessing/
-│   │   ├── clean.py             # curation, resampling, outlier detection
-│   │   └── features.py          # lag, rolling, Fourier, calendar, holidays
+│   │   ├── clean.py             # resample, IQR outlier removal, interpolation
+│   │   └── features.py          # ExogBuilder with RBF cyclical encoding
 │   ├── models/
-│   │   ├── baseline.py          # 7-day seasonal naive (fully implemented)
-│   │   └── forecaster.py        # spotforecast2-safe wrapper
+│   │   ├── baseline.py          # 7-day seasonal naive
+│   │   └── forecaster.py        # ForecasterRecursive + LightGBM wrapper
 │   └── evaluation/
-│       └── metrics.py           # MAE, RMSE, MAPE, SMAPE (fully implemented)
+│       └── metrics.py           # MAE, RMSE, MAPE, SMAPE
 │
 ├── tests/
 │   ├── conftest.py              # shared fixtures (Config, sample data)
 │   ├── test_baseline.py
-│   └── test_metrics.py
+│   ├── test_clean.py
+│   ├── test_features.py
+│   ├── test_forecaster.py
+│   ├── test_metrics.py
+│   └── test_pipeline_e2e.py     # end-to-end smoke test (no API key needed)
 │
 ├── notebooks/                   # exploratory analysis only — never imported
 ├── data/                        # gitignored — populated by `ddkast download`
@@ -147,11 +151,13 @@ ddkast/
 ├── .github/workflows/ci.yml     # CI: lint, format, type check, test
 ├── .vscode/
 │   ├── extensions.json          # recommended extensions for teammates
+│   ├── launch.json              # debug configs for each pipeline stage
+│   ├── run_pipeline.py          # helper for "run all stages" debug config
 │   └── settings.json            # ruff formatter, pyright strict, auto-format
 ├── .pre-commit-config.yaml      # ruff + pyright run before every commit
 │
 ├── pyproject.toml               # dependencies, tool config (ruff, pyright, pytest)
-├── config.toml                  # non-secret settings (country, horizon, paths)
+├── config.toml                  # non-secret settings (country, horizon, paths, …)
 ├── .env.example                 # template — copy to .env and add API key
 ├── QUESTIONS.md                 # open questions for the professor
 └── README.md                    # this file
@@ -178,7 +184,7 @@ Tests always run against the installed package — failures are honest.
 | Data storage | `pyarrow` (Parquet) | Preserves column types including datetimes, compressed, industry standard for tabular time series |
 | Core forecasting | `spotforecast2-safe` | Safety-critical design: deterministic, fail-safe on missing data, EU AI Act compliant |
 | Regressor | `lightgbm` | Best accuracy/speed trade-off for tabular time-series; used via `spotforecast2-safe` |
-| Feature engineering | `holidays`, `numpy` | German public holidays; Fourier cyclical encodings |
+| Feature engineering | `holidays`, `numpy` | German public holidays; RBF cyclical encodings via `spotforecast2-safe` |
 | Package manager | `uv` | Fast, generates a lockfile, manages the virtual environment, `uv sync` is the only setup step |
 | Testing | `pytest` | Standard |
 | Linting + formatting | `ruff` | Replaces flake8 + isort + black in one fast tool |
@@ -221,11 +227,39 @@ All other settings can be overridden via environment variables (pydantic-setting
 ### `config.toml` reference
 
 ```toml
-country_code = "DE_LU"  # ENTSO-E bidding zone code
+# --- shared ---
+country_code = "DE_LU"  # ENTSO-E bidding zone
 horizon      = 24       # hours ahead to forecast
-resolution   = "1H"     # temporal resolution ("1H", "30min", etc.)
-data_dir     = "data"   # root for raw/ and processed/ subdirectories
-models_dir   = "models" # where trained models are persisted
+resolution   = "1h"     # temporal resolution
+data_dir     = "data"
+models_dir   = "models"
+
+# --- download ---
+download_start = 2022-01-01
+download_end   = 2026-04-30
+
+# --- merge / cleaning ---
+outlier_iqr_multiplier  = 3.0   # IQR multiplier for outlier detection
+max_interpolation_hours = 3     # max consecutive missing hours to interpolate
+
+# --- features ---
+holiday_country_code = "DE"     # ISO 2-letter code for holiday calendar
+rbf_periods_hour     = 10       # RBF basis functions for daily cycle
+rbf_periods_dow      = 7        # RBF basis functions for weekly cycle
+rbf_periods_month    = 6        # RBF basis functions for annual cycle
+
+# --- train ---
+lags      = 168   # autoregressive lags (1 full week of hourly data)
+test_days = 30    # days held out for evaluation
+
+# --- inter-stage filenames (keys used by ParquetStore) ---
+raw_load_actual          = "load_actual"
+raw_load_forecast        = "load_forecast"
+processed_load           = "load_clean"
+processed_entso_forecast = "forecast_entso"
+processed_test           = "load_test"
+processed_predictions    = "load_predicted"
+model_target             = "load_mw"
 ```
 
 ### `.env` reference
@@ -242,54 +276,58 @@ Get your token at `https://transparency.entsoe.eu` → My Account → Security T
 
 ### `ddkast download`
 
-Calls `data/fetch.py` which wraps `entsoe-py` to query the ENTSO-E Transparency Platform for actual total load data (the `ActualTotalLoad` series) for the configured country and time range.
-Raw data is written to `data/raw/` via `ParquetStore`.
+Fetches two datasets from the ENTSO-E Transparency Platform in a single pass:
 
-ENTSO-E data for Germany is approximately 8,760 rows per year (one per hour).
-The download is incremental: only missing date ranges need to be fetched.
+1. **Actual total load** (`ActualTotalLoad`) — the ground truth time series
+2. **Day-ahead load forecast** (`DayAheadTotalLoadForecast`) — used as the professional benchmark in `evaluate`
+
+Both are written to `data/raw/` via `ParquetStore` under the names configured in `config.toml`.
+The date range (`download_start` → `download_end`) is configurable; the default covers Jan 2022 – Apr 2026.
 
 ### `ddkast merge`
 
-Reads all raw Parquet files, calls `preprocessing/clean.py` to:
-- Resample to the configured resolution
-- Detect and handle outliers (using `spotforecast2-safe`'s validated routines)
-- Reject windows with too many missing values (fail-safe: no silent imputation for large gaps)
+Reads the raw actual load, runs it through `preprocessing/clean.py`:
 
-The result is a single, clean, continuous time series written to `data/processed/`.
+1. Normalise to UTC (handles DST transitions in ENTSO-E local-time data)
+2. Resample to configured resolution (averages sub-hourly data, collapses duplicate timestamps)
+3. IQR-based outlier detection (`multiplier` configurable) — outliers replaced with NaN
+4. Linear interpolation for gaps up to `max_interpolation_hours`
+5. **Fail-safe**: raises `ValueError` if any NaN remains — no silent imputation of large gaps
+
+The cleaned series is written to `data/processed/`. The ENTSO-E DAF is passed through unchanged.
 
 ### `ddkast train`
 
-Reads the processed dataset, calls `preprocessing/features.py` to add:
-- **Lag features**: load 1h, 24h, and 168h (1 week) ago
-- **Rolling statistics**: 24h and 168h rolling mean and standard deviation
-- **Cyclical encodings**: sine/cosine Fourier pairs for daily, weekly, and annual seasonality (RBF decomposition is a planned alternative — see Milestone 2)
-- **Calendar features**: hour of day, day of week, month, week of year
-- **Holiday indicators**: German public holidays via the `holidays` library
-
-Then fits a `spotforecast2-safe` recursive forecaster with a LightGBM regressor using default hyperparameters (tuning comes in a later milestone).
-The trained model is persisted via `spotforecast2-safe`'s built-in persistence (`_save_forecasters`) to `models/`.
+1. Reads the processed load
+2. Splits into train / test at `cutoff = last_timestamp − test_days`
+3. Builds exogenous features for the training window via `ExogBuilder` (see [Models](#8-models))
+4. Fits a `ForecasterRecursive` with `LGBMRegressor` using `lags=168` contiguous autoregressive lags
+5. Persists the model to `models/forecaster_load_mw.joblib`
+6. Writes the test split to `data/processed/` for use by `evaluate`
 
 ### `ddkast predict`
 
-Loads the most recently trained model, constructs the feature matrix for the forecast window, and generates predictions for the next `horizon` hours.
-Output is written to `data/processed/forecast.parquet`.
+1. Reads the processed load
+2. Trims to the training portion (same `test_days` cutoff as `train`)
+3. Builds exogenous features for the next `horizon` hours
+4. Generates a `horizon`-step recursive forecast
+5. Writes predictions to `data/processed/`
 
 ### `ddkast evaluate`
 
-Loads the forecast and the ground truth from `data/processed/`, computes all four metrics, and prints a formatted comparison table:
+Loads the model forecast, the actual values, and the ENTSO-E DAF; aligns all three to the forecast timestamps; and prints a comparison table:
 
 ```
-┌─────────┬───────────┬──────────────┬────────────┐
-│ Metric  │ Naive     │ ENTSO-E DAF  │ Model      │
-├─────────┼───────────┼──────────────┼────────────┤
-│ MAE     │ 1 842 MW  │   1 100 MW   │   943 MW   │
-│ RMSE    │ 2 310 MW  │   1 420 MW   │ 1 201 MW   │
-│ MAPE    │   4.2 %   │     2.5 %    │   2.1 %    │
-│ SMAPE   │   4.1 %   │     2.4 %    │   2.0 %    │
-└─────────┴───────────┴──────────────┴────────────┘
+                  Evaluation  (2026-03-31 → 2026-03-31)
+ ┌─────────┬─────────────┬──────────────┬──────────────┐
+ │ Metric  │ 7-day Naive │  ENTSO-E DAF │     Model    │
+ ├─────────┼─────────────┼──────────────┼──────────────┤
+ │ MAE     │  1 842.0 MW │   1 100.0 MW │    943.0 MW  │
+ │ RMSE    │  2 310.0 MW │   1 420.0 MW │  1 201.0 MW  │
+ │ MAPE    │      4.2 %  │       2.5 %  │      2.1 %   │
+ │ SMAPE   │      4.1 %  │       2.4 %  │      2.0 %   │
+ └─────────┴─────────────┴──────────────┴──────────────┘
 ```
-
-Results are reported against two benchmarks: the 7-day seasonal naive forecast and the ENTSO-E published day-ahead forecast.
 
 ---
 
@@ -307,14 +345,24 @@ Any model that cannot beat it consistently is not useful.
 
 ### Forecasting model: recursive multi-step (`models/forecaster.py`)
 
-The model uses `spotforecast2-safe`'s `ForecasterRecursive` strategy:
-predictions are made one step at a time, and each prediction is fed back as an input lag feature for the next step.
-The underlying regressor is LightGBM.
+The model uses `spotforecast2-safe`'s `ForecasterRecursive` directly (the low-level class, not the high-level manager wrapper) with a `LGBMRegressor` estimator.
 
-This approach is well-suited to the 24-step (24-hour) horizon because:
-- It leverages the rich feature set described above
-- LightGBM handles non-linear interactions between lag, calendar, and holiday features naturally
-- The recursive approach is supported directly by `spotforecast2-safe` with safety guarantees
+**Autoregressive lags:** 168 contiguous lags (hours 1–168 back), capturing the full weekly cycle. LightGBM's built-in feature selection identifies which lags are actually predictive. The lag count is configurable; SHAP-driven refinement and long-range named lags (`[336, 720, 8760]`) are planned for Milestone 2.
+
+**Exogenous features** (built by `preprocessing/features.py` via `ExogBuilder`):
+
+| Feature group | Description |
+|---|---|
+| Daily RBF | 10 Gaussian basis functions spread over hours 0–23 |
+| Weekly RBF | 7 basis functions over days 0–6 |
+| Annual RBF | 6 basis functions over months 1–12 |
+| Holiday indicator | 1 if the hour falls on a German public holiday |
+| Weekend flag | 1 if Saturday or Sunday |
+
+RBF (Repeating Basis Functions) encoding places Gaussian bumps evenly around each cycle so that the model sees smooth, wrapped representations of "where in the day/week/year are we?" — avoiding the discontinuity that integer encodings create at cycle boundaries.
+A Fourier (sin/cos) comparison is planned for Milestone 2.
+
+**Persistence:** models are saved to `models/forecaster_load_mw.joblib` via joblib (following `spotforecast2-safe` conventions).
 
 ---
 
@@ -322,7 +370,7 @@ This approach is well-suited to the 24-step (24-hour) horizon because:
 
 ### Metrics (`evaluation/metrics.py`)
 
-All four metrics are computed for both the model and the baseline on every evaluation run.
+All four metrics are computed for the model, the 7-day naive baseline, and the ENTSO-E DAF on every evaluation run.
 
 | Metric | Formula | Primary use |
 |---|---|---|
@@ -340,20 +388,17 @@ Two benchmarks are computed on every evaluation run:
 | Benchmark | Description |
 |---|---|
 | **7-day naive** | `prediction[t] = actual[t − 168h]` — the minimum bar any model must beat |
-| **ENTSO-E day-ahead** | The official day-ahead load forecast published by ENTSO-E alongside the actual load data — a strong external benchmark that reflects what professional forecasters achieve |
+| **ENTSO-E day-ahead** | The official day-ahead load forecast published by ENTSO-E — a strong external benchmark reflecting what professional forecasters achieve |
 
 Beating the ENTSO-E forecast consistently would be a meaningful result; matching it is already competitive.
 
-### Walk-forward validation
+### Validation
 
-The model is not evaluated on a single train/test split.
-Instead, walk-forward (time-series cross-validation) is used:
-- Train on all data up to time T
-- Predict hours T+1 to T+24
-- Advance T by 24 hours and repeat
+**Milestone 1:** single temporal split — train on all data before the last `test_days` (default 30), evaluate on those last days. Produces the comparison table from one pass through the pipeline.
 
-This mirrors real deployment: the model is always trained on past data and evaluated on future data.
-Random splits are invalid for time series because they leak future information into training.
+**Milestone 2:** full walk-forward (time-series cross-validation) — train up to time T, predict T+1…T+24, advance T by 24h, repeat. This mirrors real deployment and gives statistically robust error estimates.
+
+Random splits are never used — they leak future information into training, which is invalid for time series.
 
 ---
 
@@ -369,20 +414,21 @@ uv run pytest tests/test_metrics.py   # single file
 
 ### What is tested
 
-- **`test_baseline.py`**: correctness of the 7-day naive forecast (length, exact values)
-- **`test_metrics.py`**: correctness of all four metric functions (zero error on perfect forecast, known values)
+| File | Coverage |
+|---|---|
+| `test_baseline.py` | 7-day naive forecast correctness |
+| `test_metrics.py` | All four metric functions |
+| `test_clean.py` | Resampling, outlier removal, gap interpolation, fail-safe rejection |
+| `test_features.py` | ExogBuilder output shape, column names, holiday/weekend flags |
+| `test_forecaster.py` | fit/forecast roundtrip, output length, index alignment, missing-model error |
+| `test_pipeline_e2e.py` | Full train → predict → evaluate on synthetic data (no API key needed) |
 
 ### What is not mocked
 
-Tests use real fixture data (a `pd.Series` of 14 days of synthetic load values) rather than mocking pandas or the ENTSO-E API.
-The ENTSO-E integration test uses a committed sample of real downloaded data so CI can run without a live API key.
+Tests use real fixture data (synthetic `pd.DataFrame` values) rather than mocking pandas or the ENTSO-E API.
+The end-to-end test writes directly to `ParquetStore` and runs all three pipeline stages, giving confidence that the stages wire together correctly.
 
 Mocking the data layer risks the mock drifting from reality — a historical failure mode where tests pass but production breaks on real data shapes.
-
-### Fixtures (`tests/conftest.py`)
-
-- `config` — a `Config` instance with a dummy API key and `tmp_path` for data/model directories; safe to use in any test
-- `load_series` — 14 days × 24 hours of realistic synthetic load values with a UTC datetime index
 
 ---
 
@@ -402,7 +448,7 @@ Windows (PowerShell):
 powershell -ExecutionPolicy BypassScope -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-**Steps 2–5** (same on all platforms — use Terminal on macOS/Linux, PowerShell on Windows):
+**Steps 2–5** (same on all platforms):
 
 ```bash
 # Clone the repo and enter it
@@ -416,13 +462,12 @@ uv sync --group dev
 uv run pre-commit install
 
 # Set up your ENTSO-E API key
-copy .env.example .env        # Windows
-cp .env.example .env          # macOS / Linux
+cp .env.example .env   # macOS / Linux
 # Open .env and replace the placeholder with your token
 ```
 
 VS Code will prompt to install recommended extensions the first time you open the project.
-Select the `.venv` interpreter when prompted — it will be detected automatically on all platforms.
+Select the `.venv` interpreter when prompted — it will be detected automatically.
 
 ### Running the pipeline
 
@@ -446,7 +491,7 @@ Override the config file:
 uv run ddkast train --config custom.toml
 ```
 
-Override a single setting (use the appropriate syntax for your shell):
+Override a single setting:
 
 ```bash
 # macOS / Linux
@@ -456,9 +501,15 @@ HORIZON=48 uv run ddkast predict
 $env:HORIZON = "48"; uv run ddkast predict
 ```
 
+### Debugging in VS Code
+
+Open the **Run and Debug** panel (Ctrl+Shift+D), select a stage by name from the dropdown, and press F5.
+Each configuration launches the corresponding pipeline stage with the `.env` file loaded and full debugger support — breakpoints, variable inspection, and step-through work including inside library code.
+
 ### Code quality
 
-Pre-commit hooks run automatically on `git commit` and check:
+Pre-commit hooks run automatically on `git commit`:
+
 1. **ruff** — linting and import sorting (with auto-fix)
 2. **ruff format** — formatting
 3. **pyright** — strict type checking
@@ -473,7 +524,7 @@ uv run pyright
 
 ### CI
 
-Every push triggers the GitHub Actions workflow (`.github/workflows/ci.yml`), which runs the same four checks: lint, format, type check, test.
+Every push triggers the GitHub Actions workflow (`.github/workflows/ci.yml`), which runs lint, format, type check, and test.
 CI must pass before a branch is merged.
 
 ---
@@ -484,24 +535,27 @@ CI must pass before a branch is merged.
 
 - [x] Project scaffold, CI, pre-commit
 - [x] `DataStore` abstraction (`ParquetStore`)
-- [x] `Config` with pydantic-settings
-- [x] Baseline model
-- [x] Evaluation metrics
-- [ ] `data/fetch.py` — ENTSO-E download
-- [ ] `preprocessing/clean.py` — curation with `spotforecast2-safe`
-- [ ] `pipeline/download.py` + `pipeline/merge.py`
-- [ ] `pipeline/train.py` — fit with default hyperparameters
-- [ ] `pipeline/predict.py` + `pipeline/evaluate.py`
-- [ ] Working end-to-end demo beating the baseline
+- [x] `Config` with pydantic-settings (all pipeline parameters configurable)
+- [x] Baseline model (7-day seasonal naive)
+- [x] Evaluation metrics (MAE, RMSE, MAPE, SMAPE)
+- [x] `data/fetch.py` — actual load + ENTSO-E DAF download
+- [x] `preprocessing/clean.py` — resample, IQR outliers, gap interpolation, fail-safe
+- [x] `preprocessing/features.py` — `ExogBuilder` with RBF cyclical encoding
+- [x] `pipeline/download.py` + `pipeline/merge.py`
+- [x] `pipeline/train.py` — temporal split + fit with `lags=168`
+- [x] `pipeline/predict.py` + `pipeline/evaluate.py` — 3-column comparison table
+- [x] End-to-end test suite (27 tests, no API key required)
+- [x] VS Code debug launch configurations
 
 ### Milestone 2 — June 23 (2nd Interim Presentation)
 
-- [ ] `preprocessing/features.py` — full feature set (lags, rolling, calendar, holidays) with Fourier cyclical encodings; evaluate RBF decomposition as alternative
-- [ ] Hyperparameter optimisation via `spotforecast2` (SpotOptim/Bayesian search), including lag count
-- [ ] SHAP explainability (feature importance)
-- [ ] Walk-forward validation
+- [ ] Full walk-forward (time-series cross-validation) replacing single split
+- [ ] SHAP explainability — feature importance, lag pruning
+- [ ] Long-range named lags `[336, 720, 8760]` evaluated via SHAP
+- [ ] Rolling statistics (24h/168h mean and std) as additional exogenous features
+- [ ] Fourier (sin/cos) vs. RBF cyclical encoding comparison
+- [ ] Hyperparameter optimisation via `spotforecast2` (SpotOptim/Bayesian search)
 - [ ] Periodogram analysis for seasonality detection (notebook)
-- [ ] ENTSO-E day-ahead forecast as secondary benchmark in `evaluate`
 
 ### Milestone 3 — July 21 (Final Presentation)
 
