@@ -142,6 +142,9 @@ ddkast/
 │   ├── test_metrics.py
 │   └── test_pipeline_e2e.py     # end-to-end smoke test (no API key needed)
 │
+├── scripts/
+│   └── seed_synthetic.py        # populate raw store with synthetic data (no API key needed)
+│
 ├── notebooks/                   # exploratory analysis only — never imported
 ├── data/                        # gitignored — populated by `ddkast download`
 │   ├── raw/
@@ -471,6 +474,8 @@ Select the `.venv` interpreter when prompted — it will be detected automatical
 
 ### Running the pipeline
 
+With a real ENTSO-E API key:
+
 ```bash
 uv run ddkast download
 uv run ddkast merge
@@ -478,6 +483,18 @@ uv run ddkast train
 uv run ddkast predict
 uv run ddkast evaluate
 ```
+
+Without an API key (synthetic data):
+
+```bash
+uv run python scripts/seed_synthetic.py   # generates realistic synthetic load data
+uv run ddkast merge
+uv run ddkast train
+uv run ddkast predict
+uv run ddkast evaluate
+```
+
+`seed_synthetic.py` writes to the same raw store that `download` would populate, so `merge` onwards runs identically in both cases.
 
 Or equivalently:
 
@@ -503,8 +520,9 @@ $env:HORIZON = "48"; uv run ddkast predict
 
 ### Debugging in VS Code
 
-Open the **Run and Debug** panel (Ctrl+Shift+D), select a stage by name from the dropdown, and press F5.
-Each configuration launches the corresponding pipeline stage with the `.env` file loaded and full debugger support — breakpoints, variable inspection, and step-through work including inside library code.
+Open the **Run and Debug** panel (Ctrl+Shift+D), select a configuration from the dropdown, and press F5.
+Available configurations: **seed synthetic data**, **download**, **merge**, **train**, **predict**, **evaluate**, **pipeline (all stages)**.
+Each launches with the `.env` file loaded and full debugger support — breakpoints, variable inspection, and step-through work including inside library code.
 
 ### Code quality
 
@@ -545,7 +563,8 @@ CI must pass before a branch is merged.
 - [x] `pipeline/train.py` — temporal split + fit with `lags=168`
 - [x] `pipeline/predict.py` + `pipeline/evaluate.py` — 3-column comparison table
 - [x] End-to-end test suite (27 tests, no API key required)
-- [x] VS Code debug launch configurations
+- [x] VS Code debug launch configurations for all stages
+- [x] `scripts/seed_synthetic.py` — full pipeline runnable without API key
 
 ### Milestone 2 — June 23 (2nd Interim Presentation)
 

@@ -60,7 +60,7 @@ Open questions for the professor: see `QUESTIONS.md`.
 
 - Use `ForecasterRecursive` directly (low-level class from `spotforecast2-safe`), **not** `ForecasterRecursiveModel`. The high-level wrapper does its own data loading that bypasses the `DataStore` abstraction.
 - Lags: `lags=168` contiguous (1 week) for M1. SHAP-driven refinement in M2 — long-range named lags (`[336, 720, 8760]`) only added if SHAP confirms their value.
-- Model persistence via `save_forecaster` / `get_last_model` from `spotforecast2_safe.manager.persistence` and `trainer`.
+- Model persistence: save via `save_forecaster` from `spotforecast2_safe.manager.persistence` (writes `forecaster_{target}.joblib`); load via `joblib.load` directly (no public load counterpart exists in the library).
 
 ### Validation
 

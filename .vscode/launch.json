@@ -52,6 +52,15 @@
       "justMyCode": false
     },
     {
+      "name": "seed synthetic data",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/seed_synthetic.py",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
       "name": "pipeline (all stages)",
       "type": "debugpy",
       "request": "launch",
