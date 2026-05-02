@@ -10,22 +10,121 @@ The long-term target is water consumption prediction for pump optimisation — t
 
 ## Table of Contents
 
-1. [Problem Statement](#1-problem-statement)
-2. [Solution Overview](#2-solution-overview)
-3. [Architecture](#3-architecture)
-4. [Project Structure](#4-project-structure)
-5. [Technical Stack](#5-technical-stack)
-6. [Configuration](#6-configuration)
-7. [Pipeline Stages](#7-pipeline-stages)
-8. [Models](#8-models)
-9. [Evaluation](#9-evaluation)
-10. [Testing](#10-testing)
-11. [Development Workflow](#11-development-workflow)
-12. [Roadmap](#12-roadmap)
+- [Quick Start](#quick-start)
+- [Problem Statement](#problem-statement)
+- [Solution Overview](#solution-overview)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Technical Stack](#technical-stack)
+- [Configuration](#configuration)
+- [Pipeline Stages](#pipeline-stages)
+- [Models](#models)
+- [Evaluation](#evaluation)
+- [Testing](#testing)
+- [Roadmap](#roadmap)
 
 ---
 
-## 1. Problem Statement
+## Quick Start
+
+### Prerequisites
+
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** — the only tool you need to install manually. Everything else (Python, dependencies, virtual environment) is managed by uv.
+- **VS Code** with the recommended extensions (you will be prompted on first open).
+
+### One-time setup
+
+```bash
+# 1. Clone and enter the repository
+git clone <repo-url>
+cd ddkast
+
+# 2. Install all dependencies and create the virtual environment
+uv sync --group dev
+
+# 3. Install pre-commit hooks (runs ruff + pyright before every commit)
+uv run pre-commit install
+
+# 4. Create your .env file
+cp .env.example .env
+```
+
+If you have an **ENTSO-E API key**, open `.env` and replace the placeholder.
+If you don't have one yet, set a dummy value for now:
+
+```
+ENTSOE_API_KEY=dummy
+```
+
+> Get a real key at [transparency.entsoe.eu](https://transparency.entsoe.eu) → My Account → Security Token.
+
+### Verify the setup
+
+```bash
+uv run pytest   # all 27 tests should pass — no API key required
+```
+
+### Run the pipeline
+
+**Without an API key** — uses synthetic data, full pipeline runs immediately:
+
+```bash
+uv run python scripts/seed_synthetic.py
+uv run ddkast merge
+uv run ddkast train
+uv run ddkast predict
+uv run ddkast evaluate
+```
+
+**With a real API key** — downloads actual German load data from ENTSO-E:
+
+```bash
+uv run ddkast download   # ~30 seconds, Jan 2022 – Apr 2026
+uv run ddkast merge
+uv run ddkast train
+uv run ddkast predict
+uv run ddkast evaluate
+```
+
+Both paths produce the same evaluation table at the end:
+
+```
+          Evaluation  (2026-03-31 → 2026-03-31)
+┏━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Metric ┃ 7-day Naive ┃ ENTSO-E DAF ┃    Model ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ MAE    │    739.9 MW │    512.3 MW │ 538.2 MW │
+│ RMSE   │    926.2 MW │    627.3 MW │ 668.3 MW │
+│ MAPE   │       1.4 % │       1.0 % │    1.1 % │
+│ SMAPE  │       1.4 % │       1.0 % │    1.0 % │
+└────────┴─────────────┴─────────────┴──────────┘
+```
+
+### VS Code
+
+1. Open the project folder — VS Code will prompt you to install recommended extensions.
+2. Select the Python interpreter: **Python: Select Interpreter** → choose `.venv`.
+3. Open the **Run and Debug** panel (`Ctrl+Shift+D`).
+4. Pick a configuration from the dropdown (**seed synthetic data**, **download**, **merge**, **train**, **predict**, **evaluate**, or **pipeline (all stages)**) and press `F5`.
+
+Full breakpoint and step-through debugging works in all configurations, including inside library code.
+
+### Code quality
+
+Pre-commit hooks run automatically on `git commit`. To run them manually:
+
+```bash
+uv run ruff check src tests --fix   # lint + auto-fix
+uv run ruff format src tests        # format
+uv run pyright                      # strict type check
+uv run pytest                       # tests
+```
+
+Every push also triggers the GitHub Actions CI workflow, which runs the same four checks. CI must pass before a branch is merged.
+
+---
+
+## Problem Statement
 
 Germany's electricity grid must balance supply and demand in real time.
 Accurate 24-hour-ahead load forecasts allow operators to schedule generation, reduce waste, and prevent outages.
@@ -41,7 +140,7 @@ Our model must beat this baseline on a held-out test set.
 
 ---
 
-## 2. Solution Overview
+## Solution Overview
 
 The solution is a CLI pipeline with five stages that can be run independently:
 
@@ -56,7 +155,7 @@ The core forecasting library is `spotforecast2-safe`, chosen specifically becaus
 
 ---
 
-## 3. Architecture
+## Architecture
 
 ### Why a pipeline of independent stages?
 
@@ -93,8 +192,6 @@ This makes functions easy to test (pass a `Config` with test values), easy to re
 `cli.py` is deliberately thin: it only parses CLI arguments and calls `pipeline.X.run(config)`.
 Business logic lives in `pipeline/`, which in turn calls `data/`, `preprocessing/`, `models/`, and `evaluation/`.
 
-This separation means the entire pipeline can be exercised in tests without invoking the CLI, and the CLI can be replaced with a web interface without touching any logic.
-
 ```
 cli.py  (thin: parse args, call pipeline)
   └── pipeline/X.py  (orchestration: call modules in the right order)
@@ -106,7 +203,7 @@ cli.py  (thin: parse args, call pipeline)
 
 ---
 
-## 4. Project Structure
+## Project Structure
 
 ```
 ddkast/
@@ -176,7 +273,7 @@ Tests always run against the installed package — failures are honest.
 
 ---
 
-## 5. Technical Stack
+## Technical Stack
 
 | Layer | Library | Why |
 |---|---|---|
@@ -200,8 +297,6 @@ Tests always run against the installed package — failures are honest.
 `spotforecast2` is the full-featured version with AutoML, plotting, and weather integration.
 `spotforecast2-safe` deliberately removes these features to produce a minimal, auditable codebase.
 
-The difference matters for critical infrastructure:
-
 | Property | spotforecast2 | spotforecast2-safe |
 |---|---|---|
 | Missing data | Silently imputes | Explicitly rejects (fail-safe) |
@@ -216,7 +311,7 @@ Since the long-term application is water pump scheduling — an operational syst
 
 ---
 
-## 6. Configuration
+## Configuration
 
 Configuration has three layers, in increasing priority:
 
@@ -275,7 +370,7 @@ Get your token at `https://transparency.entsoe.eu` → My Account → Security T
 
 ---
 
-## 7. Pipeline Stages
+## Pipeline Stages
 
 ### `ddkast download`
 
@@ -303,7 +398,7 @@ The cleaned series is written to `data/processed/`. The ENTSO-E DAF is passed th
 
 1. Reads the processed load
 2. Splits into train / test at `cutoff = last_timestamp − test_days`
-3. Builds exogenous features for the training window via `ExogBuilder` (see [Models](#8-models))
+3. Builds exogenous features for the training window via `ExogBuilder` (see [Models](#models))
 4. Fits a `ForecasterRecursive` with `LGBMRegressor` using `lags=168` contiguous autoregressive lags
 5. Persists the model to `models/forecaster_load_mw.joblib`
 6. Writes the test split to `data/processed/` for use by `evaluate`
@@ -334,7 +429,7 @@ Loads the model forecast, the actual values, and the ENTSO-E DAF; aligns all thr
 
 ---
 
-## 8. Models
+## Models
 
 ### Baseline: 7-day seasonal naive (`models/baseline.py`)
 
@@ -369,7 +464,7 @@ A Fourier (sin/cos) comparison is planned for Milestone 2.
 
 ---
 
-## 9. Evaluation
+## Evaluation
 
 ### Metrics (`evaluation/metrics.py`)
 
@@ -405,7 +500,7 @@ Random splits are never used — they leak future information into training, whi
 
 ---
 
-## 10. Testing
+## Testing
 
 Tests live in `tests/` and are run with `pytest`.
 
@@ -435,119 +530,7 @@ Mocking the data layer risks the mock drifting from reality — a historical fai
 
 ---
 
-## 11. Development Workflow
-
-### First-time setup
-
-**Step 1 — Install uv** (skip if already installed)
-
-macOS / Linux:
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Windows (PowerShell):
-```powershell
-powershell -ExecutionPolicy BypassScope -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-**Steps 2–5** (same on all platforms):
-
-```bash
-# Clone the repo and enter it
-git clone <repo-url>
-cd ddkast
-
-# Install all dependencies and create the virtual environment
-uv sync --group dev
-
-# Activate the pre-commit hooks
-uv run pre-commit install
-
-# Set up your ENTSO-E API key
-cp .env.example .env   # macOS / Linux
-# Open .env and replace the placeholder with your token
-```
-
-VS Code will prompt to install recommended extensions the first time you open the project.
-Select the `.venv` interpreter when prompted — it will be detected automatically.
-
-### Running the pipeline
-
-With a real ENTSO-E API key:
-
-```bash
-uv run ddkast download
-uv run ddkast merge
-uv run ddkast train
-uv run ddkast predict
-uv run ddkast evaluate
-```
-
-Without an API key (synthetic data):
-
-```bash
-uv run python scripts/seed_synthetic.py   # generates realistic synthetic load data
-uv run ddkast merge
-uv run ddkast train
-uv run ddkast predict
-uv run ddkast evaluate
-```
-
-`seed_synthetic.py` writes to the same raw store that `download` would populate, so `merge` onwards runs identically in both cases.
-
-Or equivalently:
-
-```bash
-python -m ddkast download
-```
-
-Override the config file:
-
-```bash
-uv run ddkast train --config custom.toml
-```
-
-Override a single setting:
-
-```bash
-# macOS / Linux
-HORIZON=48 uv run ddkast predict
-
-# Windows PowerShell
-$env:HORIZON = "48"; uv run ddkast predict
-```
-
-### Debugging in VS Code
-
-Open the **Run and Debug** panel (Ctrl+Shift+D), select a configuration from the dropdown, and press F5.
-Available configurations: **seed synthetic data**, **download**, **merge**, **train**, **predict**, **evaluate**, **pipeline (all stages)**.
-Each launches with the `.env` file loaded and full debugger support — breakpoints, variable inspection, and step-through work including inside library code.
-
-### Code quality
-
-Pre-commit hooks run automatically on `git commit`:
-
-1. **ruff** — linting and import sorting (with auto-fix)
-2. **ruff format** — formatting
-3. **pyright** — strict type checking
-
-To run them manually:
-
-```bash
-uv run ruff check src tests --fix
-uv run ruff format src tests
-uv run pyright
-```
-
-### CI
-
-Every push triggers the GitHub Actions workflow (`.github/workflows/ci.yml`), which runs lint, format, type check, and test.
-CI must pass before a branch is merged.
-
----
-
-## 12. Roadmap
+## Roadmap
 
 ### Milestone 1 — May 12 (1st Interim Presentation)
 
