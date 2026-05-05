@@ -71,3 +71,10 @@ def test_evaluate_runs_without_error(
     train.run(e2e_config)
     predict.run(e2e_config)
     evaluate.run(e2e_config)  # should not raise
+
+
+# TODO: add metric quality gates to this test so CI enforces stable forecasting quality:
+#   1. assert model MAE < naive MAE on synthetic data (model must beat the baseline)
+#   2. assert model MAE is within X% of a stored snapshot (catch silent regressions)
+# Since spotforecast2-safe is deterministic and synthetic data is seeded, results are
+# reproducible — making this a reliable PR gate without an API key.
