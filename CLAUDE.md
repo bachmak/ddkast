@@ -76,3 +76,5 @@ Open questions for the professor: see `QUESTIONS.md`.
 ## Working with Claude
 
 Before scaffolding or implementing any new module, feature, or significant design decision, interview the user about every relevant aspect — **one question at a time**, with a recommended answer and reasoning for each. Walk down the dependency tree of decisions in order. This process surfaces assumptions early and prevents rework. Do not batch questions; do not jump straight to code.
+
+When moving files (refactoring, reorganising), always use `git mv` instead of a plain file move so git preserves history.
