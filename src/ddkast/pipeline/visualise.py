@@ -60,8 +60,7 @@ def run(
     uris = backend.render(data, config)
 
     _console.print(
-        f"[bold]visualise[/bold]  [green]{config.backend}[/green] "
-        f"→ {config.plots_dir}"
+        f"[bold]visualise[/bold]  [green]{config.backend}[/green] → {config.plots_dir}"
     )
     for uri in uris:
         _console.print(f"  [link={uri}]{uri}[/link]")
