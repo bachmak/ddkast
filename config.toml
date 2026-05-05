@@ -6,7 +6,7 @@ data_dir     = "data"
 models_dir   = "models"
 
 # --- download ---
-download_start = 2022-01-01
+download_start = 2021-01-01
 download_end   = 2026-04-30
 
 # --- merge / cleaning ---
