@@ -64,7 +64,7 @@
       "name": "pipeline (all stages)",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/.vscode/run_pipeline.py",
+      "program": "${workspaceFolder}/scripts/run_pipeline.py",
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "justMyCode": false

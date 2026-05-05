@@ -1,4 +1,4 @@
-"""Run all five pipeline stages in sequence. For VS Code debugging only."""
+"""Run all five pipeline stages in sequence. For debugging only."""
 
 from ddkast.config import load
 from ddkast.pipeline import download, evaluate, merge, predict, train
