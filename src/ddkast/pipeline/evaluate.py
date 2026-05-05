@@ -46,6 +46,17 @@ def run(config: Config) -> None:
     entso_series: pd.Series[float] = entso["forecast_mw"].reindex(predictions.index)
     entso_available = not entso_series.isna().any()
 
+    # Write aligned series for the next stage
+    series: dict[str, pd.Series[float]] = {
+        "actual": actual,
+        "forecast": predictions,
+        "entso_daf": entso_series,
+        "residuals_forecast": actual - predictions,
+    }
+    if entso_available:
+        series["residuals_daf"] = actual - entso_series
+    processed.write(config.evaluation_series, pd.DataFrame(series))
+
     model_metrics = report(actual, predictions)
     naive_metrics = report(actual, naive)
 

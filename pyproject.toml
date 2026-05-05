@@ -18,6 +18,8 @@ dependencies = [
     "lightgbm",
     "numpy",
     "holidays",
+    "plotly",
+    "matplotlib",
 ]
 
 [project.scripts]

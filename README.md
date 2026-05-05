@@ -74,6 +74,7 @@ uv run ddkast merge
 uv run ddkast train
 uv run ddkast predict
 uv run ddkast evaluate
+uv run ddkast visualise
 ```
 
 **With a real API key** — downloads actual German load data from ENTSO-E:
@@ -84,6 +85,7 @@ uv run ddkast merge
 uv run ddkast train
 uv run ddkast predict
 uv run ddkast evaluate
+uv run ddkast visualise
 ```
 
 Both paths produce the same evaluation table at the end:
@@ -105,7 +107,7 @@ Both paths produce the same evaluation table at the end:
 1. Open the project folder — VS Code will prompt you to install recommended extensions.
 2. Select the Python interpreter: **Python: Select Interpreter** → choose `.venv`.
 3. Open the **Run and Debug** panel (`Ctrl+Shift+D`).
-4. Pick a configuration from the dropdown (**seed synthetic data**, **download**, **merge**, **train**, **predict**, **evaluate**, or **pipeline (all stages)**) and press `F5`.
+4. Pick a configuration from the dropdown (**seed synthetic data**, **download**, **merge**, **train**, **predict**, **evaluate**, **visualise**, or **pipeline (all stages)**) and press `F5`.
 
 Full breakpoint and step-through debugging works in all configurations, including inside library code.
 
@@ -142,10 +144,10 @@ Our model must beat this baseline on a held-out test set.
 
 ## Solution Overview
 
-The solution is a CLI pipeline with five stages that can be run independently:
+The solution is a CLI pipeline with six stages that can be run independently:
 
 ```
-ddkast download → ddkast merge → ddkast train → ddkast predict → ddkast evaluate
+ddkast download → ddkast merge → ddkast train → ddkast predict → ddkast evaluate → ddkast visualise
 ```
 
 Each stage reads its input from disk and writes its output to disk.
@@ -164,7 +166,7 @@ This means:
 
 - Stages can be developed and tested independently.
 - Responsibilities can be split across team members without merge conflicts.
-- Future stages (e.g., `visualise`, `publish`, `retrain`) can be added without modifying existing code.
+- Future stages (e.g., `publish`, `retrain`) can be added without modifying existing code.
 - A future web frontend or scheduler can call the same `pipeline.X.run(config)` functions directly — no changes needed.
 
 ### The `DataStore` abstraction
@@ -280,6 +282,12 @@ rbf_periods_month    = 6        # RBF basis functions for annual cycle
 lags      = 168   # autoregressive lags (1 full week of hourly data)
 test_days = 30    # days held out for evaluation
 
+# --- visualise ---
+backend       = "plotly"      # "plotly" (interactive HTML) or "matplotlib" (static PDF)
+plots         = ["forecast", "daf", "residuals"]  # which data series to include
+plots_dir     = "plots"       # output directory for plot files
+figure_format = "pdf"         # matplotlib output format: "pdf" or "png"
+
 # --- inter-stage filenames (keys used by ParquetStore) ---
 raw_load_actual          = "load_actual"
 raw_load_forecast        = "load_forecast"
@@ -287,6 +295,7 @@ processed_load           = "load_clean"
 processed_entso_forecast = "forecast_entso"
 processed_test           = "load_test"
 processed_predictions    = "load_predicted"
+evaluation_series        = "evaluation_series"  # written by evaluate, read by visualise
 model_target             = "load_mw"
 ```
 
@@ -343,7 +352,7 @@ The cleaned series is written to `data/processed/`. The ENTSO-E DAF is passed th
 
 ### `ddkast evaluate`
 
-Loads the model forecast, the actual values, and the ENTSO-E DAF; aligns all three to the forecast timestamps; and prints a comparison table:
+Loads the model forecast, the actual values, and the ENTSO-E DAF; aligns all three to the forecast timestamps; prints a comparison table; and writes the aligned series (actual, forecast, ENTSO-E DAF, residuals) to `data/processed/evaluation_series.parquet` for use by `visualise`.
 
 ```
                   Evaluation  (2026-03-31 → 2026-03-31)
@@ -356,6 +365,31 @@ Loads the model forecast, the actual values, and the ENTSO-E DAF; aligns all thr
  │ SMAPE   │      4.1 %  │       2.4 %  │      2.0 %   │
  └─────────┴─────────────┴──────────────┴──────────────┘
 ```
+
+### `ddkast visualise`
+
+Reads the `evaluation_series` written by `evaluate` and renders the results using the configured backend.
+
+**Plotly backend** (`--backend plotly`, default): a single interactive HTML figure with two linked subplots sharing an x-axis and a range slider. All traces are toggleable via the legend.
+
+- Top panel: actual load, model forecast, ENTSO-E DAF
+- Bottom panel: model residuals and DAF residuals, with a zero reference line
+
+**Matplotlib backend** (`--backend matplotlib`): a static two-panel PDF suitable for reports.
+
+- Top panel: actual load vs. model forecast
+- Bottom panel: model residuals with a zero reference line
+
+Both backends print a clickable terminal link to the output file. Additional CLI options:
+
+```bash
+ddkast visualise --backend matplotlib        # override backend
+ddkast visualise --from 2026-03-01           # zoom to a date window
+ddkast visualise --to   2026-04-01
+ddkast visualise --plots forecast --plots residuals  # subset of series
+```
+
+Output files are written to `plots/` by default (`plots_dir` in `config.toml`).
 
 ---
 
@@ -478,6 +512,7 @@ Mocking the data layer risks the mock drifting from reality — a historical fai
 - [x] End-to-end test suite (27 tests, no API key required)
 - [x] VS Code debug launch configurations for all stages
 - [x] `scripts/seed_synthetic.py` — full pipeline runnable without API key
+- [x] `pipeline/visualise.py` — Plotly (interactive) and Matplotlib (static) backends; clickable terminal links
 
 ### Milestone 2 — June 23 (2nd Interim Presentation)
 
@@ -493,5 +528,4 @@ Mocking the data layer risks the mock drifting from reality — a historical fai
 
 - [ ] Prediction intervals / uncertainty quantification
 - [ ] Automated retraining (GitHub Actions schedule)
-- [ ] Optional: visualisation stage (`ddkast visualise`)
 - [ ] Model card documentation (EU AI Act)

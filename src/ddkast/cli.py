@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -10,6 +11,7 @@ import ddkast.pipeline.evaluate as _evaluate
 import ddkast.pipeline.merge as _merge
 import ddkast.pipeline.predict as _predict
 import ddkast.pipeline.train as _train
+import ddkast.pipeline.visualise as _visualise
 from ddkast.config import load
 
 app = typer.Typer(help="ddkast — energy consumption forecasting")
@@ -45,3 +47,38 @@ def predict(config: _ConfigOpt = Path("config.toml")) -> None:
 def evaluate(config: _ConfigOpt = Path("config.toml")) -> None:
     """Evaluate forecast accuracy against the baseline and ground truth."""
     _evaluate.run(load(config))
+
+
+@app.command()
+def visualise(
+    config: _ConfigOpt = Path("config.toml"),
+    backend: Annotated[
+        str | None,
+        typer.Option(
+            "--backend",
+            help="Rendering backend: plotly (interactive) or matplotlib (static).",
+        ),
+    ] = None,
+    date_from: Annotated[
+        datetime | None,
+        typer.Option("--from", help="Start of the visualisation window (ISO 8601)."),
+    ] = None,
+    date_to: Annotated[
+        datetime | None,
+        typer.Option("--to", help="End of the visualisation window (ISO 8601)."),
+    ] = None,
+    plots: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--plots",
+            help="Plots to include (pass multiple times): forecast, daf, residuals.",
+        ),
+    ] = None,
+) -> None:
+    """Visualise forecast results using the configured or specified backend."""
+    cfg = load(config)
+    if backend is not None:
+        cfg = cfg.model_copy(update={"backend": backend})
+    if plots is not None:
+        cfg = cfg.model_copy(update={"plots": plots})
+    _visualise.run(cfg, date_from=date_from, date_to=date_to)

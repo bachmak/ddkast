@@ -10,7 +10,7 @@ Open questions for the professor: see `QUESTIONS.md`.
 ## Architecture
 
 - `src/` layout
-- 5-stage CLI pipeline: `download → merge → train → predict → evaluate`
+- 6-stage CLI pipeline: `download → merge → train → predict → evaluate → visualise`
 - Each stage lives in `pipeline/<stage>.py` and exposes a `run(config)` entry point
 - `DataStore` protocol (`src/ddkast/data/store.py`) with `ParquetStore` as the concrete implementation
 - `Config` is passed explicitly as an argument everywhere — never a global or singleton
@@ -28,6 +28,7 @@ Open questions for the professor: see `QUESTIONS.md`.
 - **CLI/config:** `typer`, `rich`, `pydantic-settings`
 - **Data:** `entsoe-py`, `pyarrow`, Parquet via `ParquetStore`
 - **Model:** `LightGBM`
+- **Visualisation:** `plotly` (interactive HTML), `matplotlib` (static PDF)
 - **Quality:** `pyright` strict, `ruff`, `pytest`, pre-commit hooks (ruff + pyright on every commit)
 - **CI:** GitHub Actions
 
@@ -67,11 +68,27 @@ Open questions for the professor: see `QUESTIONS.md`.
 - M1: single temporal split — train on all data except last `test_days` (default 30), evaluate on those last days
 - M2: full walk-forward (time-series cross-validation) replaces the single split
 
+### Visualisation
+
+- `visualise` is a **standalone stage** — not part of the linear pipeline chain; can be called independently or from a future `report` stage via `visualise.run(config)`
+- Assumes `evaluate` has always been run first; reads `evaluation_series.parquet` written by `evaluate` (contains: `actual`, `forecast`, `entso_daf`, `residuals_forecast`, `residuals_daf`)
+- Backend abstraction: `PlotBackend` protocol in `src/ddkast/visualisation/protocol.py` with a single method `render(data: VisualisationData, config: Config) -> list[str]` — returns a list of output URIs printed as clickable terminal links by the stage
+- Each backend has full autonomy over layout; the protocol does not prescribe which plots or how to arrange them
+- **Plotly backend** (`src/ddkast/visualisation/plotly_backend.py`): interactive HTML, two linked subplots (load panel + residuals panel), toggleable traces, range slider
+- **Matplotlib backend** (`src/ddkast/visualisation/matplotlib_backend.py`): static PDF, two-panel figure (forecast vs actual / residuals), suitable for reports
+- Both backend files carry `# pyright: reportUnknownMemberType = false` at the top — plotly and matplotlib have incomplete type stubs; this suppresses the resulting noise without affecting other files
+- `config.plots: list[str]` controls which data series are included (`"forecast"`, `"daf"`, `"residuals"`); backends read this field to decide what to render
+- CLI: `ddkast visualise [--backend] [--from] [--to] [--plots]`; `--backend` and `--plots` override their `Config` defaults via `config.model_copy(update={...})`
+
 ## Milestones
 
 - **2026-05-12**: working end-to-end demo (download → merge → train → predict → evaluate)
 - **2026-06-23**: full feature engineering, hyperparameter tuning, SHAP
 - **2026-07-21**: final presentation — uncertainty quantification, model card
+
+## Deferred decisions
+
+- **Pipeline stage caching**: revisit whether stages should cache their outputs to avoid re-running expensive steps (e.g. `train`, `predict`) when inputs haven't changed.
 
 ## Working with Claude
 

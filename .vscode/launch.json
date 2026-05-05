@@ -52,6 +52,16 @@
       "justMyCode": false
     },
     {
+      "name": "visualise",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ddkast",
+      "args": ["visualise"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
       "name": "seed synthetic data",
       "type": "debugpy",
       "request": "launch",

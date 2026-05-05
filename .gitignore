@@ -1,11 +1,12 @@
 # secrets
 .env
 
-# data and models — keep directory structure, ignore contents
+# keep directory structure, ignore contents
 data/*
 !data/.gitkeep
 models/*
 !models/.gitkeep
+plots/
 
 # python
 .venv/
@@ -27,4 +28,4 @@ notebooks/.ipynb_checkpoints/
 # os
 .DS_Store
 
-.idea
+.idea/

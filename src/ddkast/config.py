@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,6 +43,12 @@ class Config(BaseSettings):
     lags: int = 168
     test_days: int = 30
 
+    # --- visualise ---
+    backend: Literal["plotly", "matplotlib"] = "plotly"
+    plots: list[str] = ["forecast", "daf", "residuals"]
+    plots_dir: Path = Path("plots")
+    figure_format: Literal["pdf", "png"] = "pdf"
+
     # --- inter-stage filenames ---
     raw_load_actual: str = "load_actual"
     raw_load_forecast: str = "load_forecast"
@@ -50,6 +56,7 @@ class Config(BaseSettings):
     processed_entso_forecast: str = "forecast_entso"
     processed_test: str = "load_test"
     processed_predictions: str = "load_predicted"
+    evaluation_series: str = "evaluation_series"
     model_target: str = "load_mw"
 
     @property
