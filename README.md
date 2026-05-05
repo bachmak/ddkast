@@ -122,7 +122,7 @@ uv run pyright                      # strict type check
 uv run pytest                       # tests
 ```
 
-Every push also triggers the GitHub Actions CI workflow, which runs the same four checks. CI must pass before a branch is merged.
+Every push to `main` and every pull request triggers the GitHub Actions CI workflow, which runs the same four checks in parallel. CI must pass before a branch is merged.
 
 ---
 
@@ -221,7 +221,7 @@ cli.py  (thin: parse args, call pipeline)
 | Testing | `pytest` | Standard |
 | Linting + formatting | `ruff` | Replaces flake8 + isort + black in one fast tool |
 | Type checking | `pyright` (strict) | Runs in VS Code via Pylance (inline errors) and in CI; strict mode requires full annotations |
-| CI | GitHub Actions | Runs on every push: lint → format → type check → test |
+| CI | GitHub Actions | Runs on pushes to `main` and all PRs; three parallel jobs: lint + format, type check, test (≥ 80% coverage required) |
 | Pre-commit | `pre-commit` + ruff + pyright | Catches issues before they reach the remote |
 
 ### Why `spotforecast2-safe` and not `spotforecast2`?
