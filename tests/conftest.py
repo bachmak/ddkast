@@ -13,6 +13,7 @@ from ddkast.config import Config
 def config(tmp_path: Path) -> Config:
     return Config(
         entsoe_api_key="test_key",
+        team_id="test_team",
         data_dir=tmp_path / "data",
         models_dir=tmp_path / "models",
     )
