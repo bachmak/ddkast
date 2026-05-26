@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -20,9 +20,21 @@ _ConfigOpt = Annotated[Path, typer.Option("--config", "-c", help="Path to config
 
 
 @app.command()
-def download(config: _ConfigOpt = Path("config.toml")) -> None:
-    """Fetch raw load data from ENTSO-E."""
-    _download.run(load(config))
+def download(
+    config: _ConfigOpt = Path("config.toml"),
+    end: Annotated[
+        str | None,
+        typer.Option(
+            "--end",
+            help="Download end date (YYYY-MM-DD). Default: config.download_end.",
+        ),
+    ] = None,
+) -> None:
+    """Fetch raw load and weather data."""
+    cfg = load(config)
+    if end is not None:
+        cfg = cfg.model_copy(update={"download_end": date.fromisoformat(end)})
+    _download.run(cfg)
 
 
 @app.command()
@@ -38,9 +50,21 @@ def train(config: _ConfigOpt = Path("config.toml")) -> None:
 
 
 @app.command()
-def predict(config: _ConfigOpt = Path("config.toml")) -> None:
+def predict(
+    config: _ConfigOpt = Path("config.toml"),
+    target_date: Annotated[
+        str | None,
+        typer.Option(
+            "--target-date",
+            help="Target day to forecast (YYYY-MM-DD).",
+        ),
+    ] = None,
+) -> None:
     """Generate a forecast for the next horizon hours."""
-    _predict.run(load(config))
+    parsed: date | None = (
+        date.fromisoformat(target_date) if target_date is not None else None
+    )
+    _predict.run(load(config), target_date=parsed)
 
 
 @app.command()

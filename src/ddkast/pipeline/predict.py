@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +9,8 @@ from rich.console import Console
 
 from ddkast.config import Config
 from ddkast.data.store import ParquetStore
+from ddkast.data.weather import fetch_weather
+from ddkast.preprocessing.features import build_exog_matrix
 
 _console = Console()
 
@@ -22,8 +25,16 @@ def _set_freq(series: pd.Series) -> pd.Series:  # type: ignore[type-arg]
     return series
 
 
-def run(config: Config) -> None:
-    """Load the trained model and forecast the test-split window using exog_full."""
+def run(config: Config, target_date: date | None = None) -> None:
+    """Load the trained model and generate a 24-hour forecast.
+
+    Default path (no target_date): forecasts the test-split window using the
+    exog matrix persisted by `train`. Fully offline, no API calls.
+
+    Live path (target_date provided): fetches weather forecast from Open-Meteo
+    and uses the last 168 h of actual load as the autoregressive window.
+    Requires the load data to extend up to target_date - 1 day.
+    """
     processed = ParquetStore(config.processed_dir)
     clean_load: pd.Series[float] = processed.read(config.processed_load)[
         config.model_target
@@ -36,25 +47,70 @@ def run(config: Config) -> None:
         )
     forecaster = joblib_load(model_path)  # pyright: ignore[reportUnknownVariableType]
 
-    cutoff: pd.Timestamp = clean_load.index[-1] - pd.Timedelta(  # type: ignore[assignment]
-        days=config.test_days
-    )
-    train_end: pd.Timestamp = clean_load.loc[:cutoff].index[-1]  # type: ignore[assignment]
+    if target_date is not None:
+        # --- LIVE PATH ---------------------------------------------------
+        target_start = pd.Timestamp(target_date, tz="UTC")
+        target_end = target_start + pd.Timedelta(hours=config.horizon - 1)
+        target_index = pd.date_range(target_start, target_end, freq="h")
 
-    last_window = _set_freq(clean_load.loc[:train_end].iloc[-config.lags :].copy())
+        # Continuity check: load must end before the target day
+        actual_last_hour: pd.Timestamp = clean_load.index[-1]  # type: ignore[assignment]
+        if actual_last_hour >= target_start:
+            raise ValueError(
+                f"Load data extends into the target day ({actual_last_hour}). "
+                "This would leak future data into last_window."
+            )
+        if target_start - actual_last_hour > pd.Timedelta(hours=config.lags):
+            raise ValueError(
+                f"Last load hour {actual_last_hour} is more than {config.lags}h "
+                f"before target {target_date}. Download more recent data first."
+            )
 
-    target_start = train_end + pd.Timedelta(hours=1)
-    target_end = target_start + pd.Timedelta(hours=config.horizon - 1)
-    target_index = pd.date_range(target_start, target_end, freq="h")
+        last_window = _set_freq(clean_load.iloc[-config.lags :].copy())
 
-    exog_full = processed.read(config.processed_exog)
-    exog_pred = exog_full.loc[target_index]
+        weather_cache = config.weather_cache_dir / "weather_forecast.parquet"
+        weather_forecast = fetch_weather(
+            start=target_start,
+            end=target_end,
+            latitude=config.weather_latitude,
+            longitude=config.weather_longitude,
+            cache_path=weather_cache,
+            use_forecast=True,
+        )
+        exog_pred = build_exog_matrix(
+            start=target_start,
+            end=target_end,
+            weather_df=weather_forecast,
+            config=config,
+        )
 
-    _console.print(
-        f"[bold]predict[/bold]  forecasting {config.horizon}h from {cutoff.date()}… "
-        f"(exog: {exog_pred.shape[1]} cols)"
-    )
+        _console.print(
+            f"[bold]predict[/bold]  live forecast for {target_date} "
+            f"({config.horizon}h, exog: {exog_pred.shape[1]} cols)"
+        )
 
+    else:
+        # --- DEFAULT PATH (test-split evaluation) -------------------------
+        cutoff: pd.Timestamp = clean_load.index[-1] - pd.Timedelta(  # type: ignore[assignment]
+            days=config.test_days
+        )
+        train_end: pd.Timestamp = clean_load.loc[:cutoff].index[-1]  # type: ignore[assignment]
+
+        last_window = _set_freq(clean_load.loc[:train_end].iloc[-config.lags :].copy())
+
+        target_start = train_end + pd.Timedelta(hours=1)
+        target_end = target_start + pd.Timedelta(hours=config.horizon - 1)
+        target_index = pd.date_range(target_start, target_end, freq="h")
+
+        exog_full = processed.read(config.processed_exog)
+        exog_pred = exog_full.loc[target_index]
+
+        _console.print(
+            f"[bold]predict[/bold]  forecasting {config.horizon}h from {cutoff.date()}… "  # noqa: E501
+            f"(exog: {exog_pred.shape[1]} cols)"
+        )
+
+    # --- SHARED: predict + validate + persist ----------------------------
     y_pred: pd.Series[float] = forecaster.predict(  # type: ignore[union-attr]
         steps=config.horizon,
         last_window=last_window,
@@ -76,3 +132,18 @@ def run(config: Config) -> None:
         f"({y_pred.index[0]} → {y_pred.index[-1]}) "
         f"→ {config.processed_dir / config.processed_predictions}.parquet"
     )
+
+    # Write submission CSV for the challenge leaderboard (live path only)
+    if target_date is not None:
+        sub_dir = config.data_dir / "submissions" / config.team_id
+        sub_dir.mkdir(parents=True, exist_ok=True)
+        sub_path = sub_dir / f"{target_date.isoformat()}.csv"
+        pd.DataFrame(
+            {
+                "timestamp_utc": [
+                    ts.strftime("%Y-%m-%dT%H:%M:%SZ") for ts in y_pred.index
+                ],
+                "forecast_mw": y_pred.to_numpy(),
+            }
+        ).to_csv(sub_path, index=False)
+        _console.print(f"  [green]✓[/green] submission -> {sub_path}")
