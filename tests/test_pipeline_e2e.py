@@ -12,6 +12,24 @@ from ddkast.config import Config
 from ddkast.data.store import ParquetStore
 from ddkast.pipeline import evaluate, predict, train
 
+_WEATHER_COLS = [
+    "temperature_2m",
+    "relative_humidity_2m",
+    "precipitation",
+    "rain",
+    "snowfall",
+    "weather_code",
+    "pressure_msl",
+    "surface_pressure",
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+]
+
 
 @pytest.fixture
 def e2e_config(config: Config) -> Config:
@@ -21,7 +39,7 @@ def e2e_config(config: Config) -> Config:
 
 @pytest.fixture
 def synthetic_processed(e2e_config: Config) -> None:
-    """Write synthetic clean load + ENTSO-E DAF to the processed store."""
+    """Write synthetic clean load + ENTSO-E DAF + weather to the processed store."""
     processed = ParquetStore(e2e_config.processed_dir)
 
     # 7-day naive needs data 168h before the first forecast timestamp.
@@ -36,6 +54,13 @@ def synthetic_processed(e2e_config: Config) -> None:
     daf_values = load_values + rng.normal(0, 500, 250)
     daf_df = pd.DataFrame({"forecast_mw": daf_values}, index=idx)
     processed.write(e2e_config.processed_entso_forecast, daf_df)
+
+    weather_df = pd.DataFrame(
+        rng.uniform(0, 20, (len(idx), len(_WEATHER_COLS))),
+        index=idx,
+        columns=_WEATHER_COLS,
+    )
+    processed.write(e2e_config.processed_weather, weather_df)
 
 
 def test_train_creates_model_and_test_split(
