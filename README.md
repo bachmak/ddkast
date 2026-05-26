@@ -61,7 +61,7 @@ ENTSOE_API_KEY=dummy
 ### Verify the setup
 
 ```bash
-uv run pytest   # all 27 tests should pass — no API key required
+uv run pytest   # all 41 tests should pass — no API key required
 ```
 
 ### Run the pipeline
@@ -69,7 +69,7 @@ uv run pytest   # all 27 tests should pass — no API key required
 **Without an API key** — uses synthetic data, full pipeline runs immediately:
 
 ```bash
-uv run python scripts/seed_synthetic.py
+uv run python scripts/seed_synthetic.py   # seeds load, DAF, and weather to data/raw/
 uv run ddkast merge
 uv run ddkast train
 uv run ddkast predict
@@ -77,15 +77,24 @@ uv run ddkast evaluate
 uv run ddkast visualise
 ```
 
-**With a real API key** — downloads actual German load data from ENTSO-E:
+**With a real API key** — downloads actual German load and weather data:
 
 ```bash
-uv run ddkast download   # ~30 seconds, Jan 2022 – Apr 2026
+uv run ddkast download          # Jan 2024 – Apr 2026 (ENTSO-E + Open-Meteo)
 uv run ddkast merge
 uv run ddkast train
 uv run ddkast predict
 uv run ddkast evaluate
 uv run ddkast visualise
+```
+
+To forecast a specific future date (live path, requires up-to-date load data):
+
+```bash
+uv run ddkast download --end 2026-05-24   # refresh load + weather to yesterday
+uv run ddkast merge
+uv run ddkast train
+uv run ddkast predict --target-date 2026-05-25
 ```
 
 Both paths produce the same evaluation table at the end:
@@ -213,10 +222,11 @@ cli.py  (thin: parse args, call pipeline)
 | Terminal output | `rich` | Progress bars, formatted tables, coloured errors |
 | Configuration | `pydantic-settings` | Validates types at startup, loads `.env` and `config.toml`, fails loudly on misconfiguration |
 | Data access | `entsoe-py` | Mature wrapper for the ENTSO-E Transparency Platform API; returns pandas DataFrames |
+| Weather data | `spotforecast2-safe` `WeatherService` | Open-Meteo archive (historical) and forecast (prospective) endpoints; UTC-aware, fail-safe on gaps |
 | Data storage | `pyarrow` (Parquet) | Preserves column types including datetimes, compressed, industry standard for tabular time series |
 | Core forecasting | `spotforecast2-safe` | Safety-critical design: deterministic, fail-safe on missing data, EU AI Act compliant |
 | Regressor | `lightgbm` | Best accuracy/speed trade-off for tabular time-series; used via `spotforecast2-safe` |
-| Feature engineering | `holidays`, `numpy` | German public holidays; RBF cyclical encodings via `spotforecast2-safe` |
+| Feature engineering | `holidays`, `numpy` | German public holidays; RBF cyclical encodings and weather join via `spotforecast2-safe` |
 | Package manager | `uv` | Fast, generates a lockfile, manages the virtual environment, `uv sync` is the only setup step |
 | Testing | `pytest` | Standard |
 | Linting + formatting | `ruff` | Replaces flake8 + isort + black in one fast tool |
@@ -257,6 +267,9 @@ All other settings can be overridden via environment variables (pydantic-setting
 ### `config.toml` reference
 
 ```toml
+# --- challenge ---
+team_id = "your_team_id"  # alphanumeric + underscore; used in submission CSV path
+
 # --- shared ---
 country_code = "DE_LU"  # ENTSO-E bidding zone
 horizon      = 24       # hours ahead to forecast
@@ -282,6 +295,11 @@ rbf_periods_month    = 6        # RBF basis functions for annual cycle
 lags      = 168   # autoregressive lags (1 full week of hourly data)
 test_days = 30    # days held out for evaluation
 
+# --- weather ---
+weather_latitude  = 50.110924   # Open-Meteo fetch location (default: Frankfurt am Main)
+weather_longitude = 8.682127
+weather_cache_dir = "data/cache"  # local cache for Open-Meteo responses
+
 # --- visualise ---
 backend       = "plotly"      # "plotly" (interactive HTML) or "matplotlib" (static PDF)
 plots         = ["forecast", "daf", "residuals"]  # which data series to include
@@ -291,8 +309,11 @@ figure_format = "pdf"         # matplotlib output format: "pdf" or "png"
 # --- inter-stage filenames (keys used by ParquetStore) ---
 raw_load_actual          = "load_actual"
 raw_load_forecast        = "load_forecast"
+raw_weather              = "weather_raw"       # written by download, read by merge
 processed_load           = "load_clean"
 processed_entso_forecast = "forecast_entso"
+processed_weather        = "weather_processed" # written by merge, read by train and predict
+processed_exog           = "exog_full"         # 40-col exog matrix, written by train
 processed_test           = "load_test"
 processed_predictions    = "load_predicted"
 evaluation_series        = "evaluation_series"  # written by evaluate, read by visualise
@@ -307,48 +328,67 @@ ENTSOE_API_KEY=your_security_token_here
 
 Get your token at `https://transparency.entsoe.eu` → My Account → Security Token.
 
+> `team_id` can also be set via the `TEAM_ID` environment variable instead of `config.toml`.
+
 ---
 
 ## Pipeline Stages
 
 ### `ddkast download`
 
-Fetches two datasets from the ENTSO-E Transparency Platform in a single pass:
+Fetches three datasets in a single pass:
 
-1. **Actual total load** (`ActualTotalLoad`) — the ground truth time series
-2. **Day-ahead load forecast** (`DayAheadTotalLoadForecast`) — used as the professional benchmark in `evaluate`
+1. **Actual total load** (`ActualTotalLoad`) — the ground truth time series, from ENTSO-E
+2. **Day-ahead load forecast** (`DayAheadTotalLoadForecast`) — the professional benchmark, from ENTSO-E
+3. **Weather archive** (Open-Meteo) — 15 meteorological variables at hourly resolution for the configured location (default: Frankfurt am Main). Uses the reanalysis archive endpoint; responses are cached locally under `weather_cache_dir` to avoid repeat API calls.
 
-Both are written to `data/raw/` via `ParquetStore` under the names configured in `config.toml`.
+All three are written to `data/raw/` via `ParquetStore`.
 The date range (`download_start` → `download_end`) is configurable; the default covers Jan 2022 – Apr 2026.
 
 ### `ddkast merge`
 
-Reads the raw actual load, runs it through `preprocessing/clean.py`:
+Reads all three raw artifacts and produces three processed outputs:
 
+**Actual load** — cleaned via `preprocessing/clean.py`:
 1. Normalise to UTC (handles DST transitions in ENTSO-E local-time data)
 2. Resample to configured resolution (averages sub-hourly data, collapses duplicate timestamps)
 3. IQR-based outlier detection (`multiplier` configurable) — outliers replaced with NaN
 4. Linear interpolation for gaps up to `max_interpolation_hours`
-5. **Fail-safe**: raises `ValueError` if any NaN remains — no silent imputation of large gaps
+5. **Fail-safe**: raises `ValueError` if any NaN remains after interpolation
 
-The cleaned series is written to `data/processed/`. The ENTSO-E DAF is passed through unchanged.
+**ENTSO-E DAF** — resampled from 15-min to hourly resolution, then interpolated for short gaps. If NaN remain after interpolation (gap too long), a warning is logged and the affected rows are dropped — the DAF is best-effort and its gaps do not invalidate the load data.
+
+**Weather** — resampled to 1h and converted to UTC.
+
+**Trim logic:** load and DAF are trimmed to their mutual overlap. Weather is trimmed separately within the load range. This is necessary because the Open-Meteo reanalysis archive has a publication lag of a few days — the tail of the load series will often have no weather coverage yet, and that is normal.
 
 ### `ddkast train`
 
-1. Reads the processed load
+1. Reads the processed load and processed weather
 2. Splits into train / test at `cutoff = last_timestamp − test_days`
-3. Builds exogenous features for the training window via `ExogBuilder` (see [Models](#models))
-4. Fits a `ForecasterRecursive` with `LGBMRegressor` using `lags=168` contiguous autoregressive lags
-5. Persists the model to `models/forecaster_load_mw.joblib`
-6. Writes the test split to `data/processed/` for use by `evaluate`
+3. Builds a 40-column exog matrix (25 calendar + 15 weather) over the full load range and writes it to `data/processed/exog_full.parquet` for reuse by `predict`
+4. **Clips `train_df` to the exog coverage window** — weather may end a few days before the load series (Open-Meteo publication lag), so this step prevents a KeyError when aligning train labels with exog rows
+5. Fits a `ForecasterRecursive` with `LGBMRegressor` using `lags=168` contiguous autoregressive lags
+6. Persists the model to `models/forecaster_load_mw.joblib`
+7. Writes the test split to `data/processed/` for use by `evaluate`
 
 ### `ddkast predict`
 
-1. Reads the processed load
-2. Trims to the training portion (same `test_days` cutoff as `train`)
-3. Builds exogenous features for the next `horizon` hours
-4. Generates a `horizon`-step recursive forecast
+The stage operates in two modes depending on whether `--target-date` is supplied.
+
+**Default path** (no `--target-date`):
+1. Reads the processed load and the pre-built `exog_full` matrix from DataStore (written by `train`)
+2. Uses the last `lags` hours of load before the train/test cutoff as the autoregressive window
+3. Slices `exog_full` to the target `horizon` timestamps and generates a recursive forecast
+4. Writes predictions to `data/processed/`
+
+**Live path** (`--target-date YYYY-MM-DD`):
+1. Checks that load data extends to `target_date − 1 day 23:00` (continuity guard — raises a helpful error with the required `download` command if not)
+2. Fetches a weather forecast from Open-Meteo for the target 24-hour window (covers up to 7 days ahead)
+3. Builds a 40-column exog matrix for the target window from the live weather forecast
+4. Generates the recursive forecast using the last `lags` hours of load as the autoregressive window
 5. Writes predictions to `data/processed/`
+6. **Writes a submission CSV** to `data/submissions/<team_id>/<YYYY-MM-DD>.csv` in the challenge format (`timestamp_utc`, `forecast_mw`, 24 rows)
 
 ### `ddkast evaluate`
 
@@ -411,17 +451,20 @@ The model uses `spotforecast2-safe`'s `ForecasterRecursive` directly (the low-le
 
 **Autoregressive lags:** 168 contiguous lags (hours 1–168 back), capturing the full weekly cycle. LightGBM's built-in feature selection identifies which lags are actually predictive. The lag count is configurable; SHAP-driven refinement and long-range named lags (`[336, 720, 8760]`) are planned for Milestone 2.
 
-**Exogenous features** (built by `preprocessing/features.py` via `ExogBuilder`):
+**Exogenous features** (built by `preprocessing/features.py`): 40 columns total.
 
-| Feature group | Description |
-|---|---|
-| Daily RBF | 10 Gaussian basis functions spread over hours 0–23 |
-| Weekly RBF | 7 basis functions over days 0–6 |
-| Annual RBF | 6 basis functions over months 1–12 |
-| Holiday indicator | 1 if the hour falls on a German public holiday |
-| Weekend flag | 1 if Saturday or Sunday |
+| Feature group | Columns | Description |
+|---|---|---|
+| Daily RBF | 10 | Gaussian basis functions spread over hours 0–23 |
+| Weekly RBF | 7 | Basis functions over days 0–6 |
+| Annual RBF | 6 | Basis functions over months 1–12 |
+| Holiday indicator | 1 | 1 if the hour falls on a German public holiday |
+| Weekend flag | 1 | 1 if Saturday or Sunday |
+| Weather | 15 | `temperature_2m`, `relative_humidity_2m`, `precipitation`, `rain`, `snowfall`, `weather_code`, `pressure_msl`, `surface_pressure`, `cloud_cover`, `cloud_cover_low`, `cloud_cover_mid`, `cloud_cover_high`, `wind_speed_10m`, `wind_direction_10m`, `wind_gusts_10m` |
 
 RBF (Repeating Basis Functions) encoding places Gaussian bumps evenly around each cycle so that the model sees smooth, wrapped representations of "where in the day/week/year are we?" — avoiding the discontinuity that integer encodings create at cycle boundaries.
+
+The calendar features (25 cols) are built for any timestamp range. The weather features (15 cols) are joined from either the archived reanalysis data (training and default predict) or a live Open-Meteo forecast (live predict path).
 A Fourier (sin/cos) comparison is planned for Milestone 2.
 
 **Persistence:** models are saved to `models/forecaster_load_mw.joblib` via joblib (following `spotforecast2-safe` conventions).
@@ -483,6 +526,9 @@ uv run pytest tests/test_metrics.py   # single file
 | `test_clean.py` | Resampling, outlier removal, gap interpolation, fail-safe rejection |
 | `test_features.py` | ExogBuilder output shape, column names, holiday/weekend flags |
 | `test_forecaster.py` | fit/forecast roundtrip, output length, index alignment, missing-model error |
+| `test_weather.py` | `fetch_weather` with mocked `WeatherService`; both archive and forecast paths; gap error propagation |
+| `test_merge.py` | DAF resampling to hourly, separate load/DAF and weather trim logic, no NaN after merge |
+| `test_predict_live.py` | Live predict path: continuity guard, 24-row output, submission CSV written to correct path |
 | `test_pipeline_e2e.py` | Full train → predict → evaluate on synthetic data (no API key needed) |
 
 ### What is not mocked
