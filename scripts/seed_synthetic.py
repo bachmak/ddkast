@@ -1,6 +1,7 @@
-"""Populate the raw data store with realistic synthetic load data.
+"""Populate the raw data store with realistic synthetic load and weather data.
 
-Bypasses the ENTSO-E API so the full pipeline can be exercised without a key.
+Bypasses the ENTSO-E API and Open-Meteo so the full pipeline can be exercised
+without any API key or network access.
 Run from the project root:
 
     uv run python scripts/seed_synthetic.py
@@ -28,10 +29,28 @@ _RNG = np.random.default_rng(42)
 
 # Realistic Germany load range (MW)
 _BASE_MW = 52_000.0
-_DAILY_AMP = 8_000.0   # peak-to-trough swing within a day
+_DAILY_AMP = 8_000.0  # peak-to-trough swing within a day
 _WEEKLY_AMP = 5_000.0  # workday vs. weekend drop
 _NOISE_STD = 800.0
 _FORECAST_ERROR_STD = 600.0  # DAF error relative to actual
+
+_WEATHER_COLS = [
+    "temperature_2m",
+    "relative_humidity_2m",
+    "precipitation",
+    "rain",
+    "snowfall",
+    "weather_code",
+    "pressure_msl",
+    "surface_pressure",
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+]
 
 
 def _synthetic_load(index: pd.DatetimeIndex) -> np.ndarray:
@@ -83,6 +102,30 @@ def main() -> None:
     _console.print(
         f"  [green]✓[/green] DAF forecast  {len(forecast_df):,} rows "
         f"→ {config.raw_dir / config.raw_load_forecast}.parquet"
+    )
+
+    weather_data = {
+        "temperature_2m": 10.0 + 8.0 * np.sin(2 * np.pi * index.dayofyear / 365),
+        "relative_humidity_2m": _RNG.uniform(50, 90, len(index)),
+        "precipitation": np.clip(_RNG.exponential(0.1, len(index)), 0, 10),
+        "rain": np.clip(_RNG.exponential(0.05, len(index)), 0, 5),
+        "snowfall": np.clip(_RNG.exponential(0.01, len(index)), 0, 2),
+        "weather_code": _RNG.integers(0, 100, len(index)).astype(float),
+        "pressure_msl": _RNG.normal(1013.0, 10.0, len(index)),
+        "surface_pressure": _RNG.normal(1008.0, 10.0, len(index)),
+        "cloud_cover": _RNG.uniform(0, 100, len(index)),
+        "cloud_cover_low": _RNG.uniform(0, 50, len(index)),
+        "cloud_cover_mid": _RNG.uniform(0, 50, len(index)),
+        "cloud_cover_high": _RNG.uniform(0, 50, len(index)),
+        "wind_speed_10m": _RNG.uniform(0, 20, len(index)),
+        "wind_direction_10m": _RNG.uniform(0, 360, len(index)),
+        "wind_gusts_10m": _RNG.uniform(0, 30, len(index)),
+    }
+    weather_df = pd.DataFrame(weather_data, index=index)
+    store.write(config.raw_weather, weather_df)
+    _console.print(
+        f"  [green]✓[/green] weather       {len(weather_df):,} rows "
+        f"→ {config.raw_dir / config.raw_weather}.parquet"
     )
 
     _console.print()
