@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import tomllib
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,14 @@ class Config(BaseSettings):
     )
 
     entsoe_api_key: str
+    team_id: str  # required -- set in config.toml or TEAM_ID env var
+
+    @field_validator("team_id")
+    @classmethod
+    def _validate_team_id(cls, v: str) -> str:
+        if not all(c.isalnum() or c == "_" for c in v):
+            raise ValueError(f"team_id must be alphanumeric + underscores, got '{v}'")
+        return v.lower()
 
     # --- shared ---
     country_code: str = "DE_LU"
@@ -27,6 +36,17 @@ class Config(BaseSettings):
     # --- download ---
     download_start: date = date(2022, 1, 1)
     download_end: date = date(2026, 4, 30)
+
+    @field_validator("download_end")
+    @classmethod
+    def _download_end_not_future(cls, v: date) -> date:
+        yesterday = date.today() - timedelta(days=1)
+        if v > yesterday:
+            raise ValueError(
+                f"download_end {v} must be ≤ yesterday ({yesterday}); "
+                "cannot download load data that does not exist yet."
+            )
+        return v
 
     # --- merge / cleaning ---
     outlier_iqr_multiplier: float = 3.0
@@ -49,11 +69,19 @@ class Config(BaseSettings):
     plots_dir: Path = Path("plots")
     figure_format: Literal["pdf", "png"] = "pdf"
 
+    # --- weather ---
+    weather_latitude: float = 50.110924
+    weather_longitude: float = 8.682127
+    weather_cache_dir: Path = Path("data/cache")
+
     # --- inter-stage filenames ---
     raw_load_actual: str = "load_actual"
     raw_load_forecast: str = "load_forecast"
+    raw_weather: str = "weather_raw"
     processed_load: str = "load_clean"
     processed_entso_forecast: str = "forecast_entso"
+    processed_weather: str = "weather_processed"
+    processed_exog: str = "exog_full"
     processed_test: str = "load_test"
     processed_predictions: str = "load_predicted"
     evaluation_series: str = "evaluation_series"
