@@ -2,17 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import pandas as pd
 from rich.console import Console
 
 from ddkast.config import Config
 from ddkast.data.fetch import fetch_load, fetch_load_forecast
 from ddkast.data.store import ParquetStore
+from ddkast.data.weather import fetch_weather
 
 _console = Console()
 
 
 def run(config: Config) -> None:
-    """Fetch raw load data from ENTSO-E and write to the raw data store."""
+    """Fetch raw load data from ENTSO-E and weather from Open-Meteo."""
     store = ParquetStore(config.raw_dir)
 
     start = datetime(
@@ -48,4 +50,19 @@ def run(config: Config) -> None:
     _console.print(
         f"  [green]✓[/green] DAF forecast  {len(forecast):,} rows → "
         f"{config.raw_dir / config.raw_load_forecast}.parquet"
+    )
+
+    _console.print("  fetching weather archive (Open-Meteo)…")
+    weather = fetch_weather(
+        start=pd.Timestamp(start, tz="UTC"),
+        end=pd.Timestamp(end, tz="UTC"),
+        latitude=config.weather_latitude,
+        longitude=config.weather_longitude,
+        use_forecast=False,
+        # cache_path omitted — DataStore (store.write below) owns persistence
+    )
+    store.write(config.raw_weather, weather)
+    _console.print(
+        f"  [green]✓[/green] weather       {len(weather):,} rows → "
+        f"{config.raw_dir / config.raw_weather}.parquet"
     )
