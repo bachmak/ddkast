@@ -23,11 +23,9 @@ def _with_freq(series: pd.Series[float]) -> pd.Series[float]:
     return series
 
 
-def fit(df: pd.DataFrame, config: Config) -> None:
+def fit(df: pd.DataFrame, config: Config, exog: pd.DataFrame) -> None:
     """Fit a recursive forecaster on df and persist it to config.models_dir."""
     series: pd.Series[float] = _with_freq(df[config.model_target])
-    builder = build_exog_builder(config)
-    exog = builder.build(series.index.min(), series.index.max())
 
     forecaster: ForecasterRecursive = ForecasterRecursive(
         estimator=LGBMRegressor(
