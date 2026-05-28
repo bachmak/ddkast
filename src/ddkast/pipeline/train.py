@@ -14,6 +14,7 @@ def run(config: Config) -> None:
     """Split processed data, fit the forecasting model, and persist the test split."""
     processed = ParquetStore(config.processed_dir)
     df = processed.read(config.processed_load)
+    weather = processed.read(config.processed_weather)
 
     cutoff: pd.Timestamp = df.index[-1] - pd.Timedelta(days=config.test_days)  # type: ignore[assignment]
     train_df = df.loc[df.index <= cutoff]
@@ -24,7 +25,7 @@ def run(config: Config) -> None:
         f"({len(train_df):,} rows)  |  test: {len(test_df):,} rows"
     )
 
-    fit(train_df, config)
+    fit(train_df, weather, config)
     processed.write(config.processed_test, test_df)
     _console.print(
         f"  [green]✓[/green] model saved  |  test split → "
