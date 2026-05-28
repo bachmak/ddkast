@@ -16,7 +16,7 @@ jobs:
       ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}
       TEST_DAYS: "0"
       HORIZON: "48"
-      TEAM_ID: ${{ vars.TEAM_ID || 'ddkast' }}
+      TEAM_ID: ${{ vars.TEAM_ID }}
       LEADERBOARD_FORK: ${{ vars.LEADERBOARD_FORK }}
       LEADERBOARD_UPSTREAM: bartzbeielstein/challenge-leaderboard
     steps:
@@ -40,8 +40,8 @@ jobs:
           git remote add upstream "https://github.com/$LEADERBOARD_UPSTREAM.git"
           git fetch upstream main --depth=1
           git checkout -B main upstream/main
-          git config user.name "ddkast-bot"
-          git config user.email "ddkast-bot@users.noreply.github.com"
+          git config user.name "${TEAM_ID}-bot"
+          git config user.email "${TEAM_ID}-bot@users.noreply.github.com"
 
       - name: Download
         run: uv run ddkast download
@@ -55,10 +55,10 @@ jobs:
       - name: Predict
         run: uv run ddkast predict
 
-      - name: Submit (write CSV into fork)
-        env:
-          SUBMISSIONS_DIR: challenge-leaderboard/submissions
-        run: uv run ddkast submit
+      - name: Format submission (write CSV into fork)
+        run: |
+          uv run ddkast format-submission \
+            --out-dir "challenge-leaderboard/submissions/${TEAM_ID}"
 
       - name: Compute target date
         id: target
@@ -91,4 +91,4 @@ jobs:
             --base main \
             --head "${LEADERBOARD_FORK%%/*}:${BRANCH}" \
             --title "${TEAM_ID}: submission for ${TARGET}" \
-            --body "Automated submission from ddkast for ${TARGET} (UTC)."
+            --body "Automated submission from ${TEAM_ID} for ${TARGET} (UTC)."

@@ -1,8 +1,8 @@
-"""Tests for the ``ddkast submit`` stage.
+"""Tests for the ``ddkast format-submission`` stage.
 
 The stage slices "tomorrow" (UTC) out of the predictions written by ``predict``,
-so each test constructs a predictions Parquet whose index spans today + tomorrow
-and points the stage at it via the ``submit`` test config.
+so each test constructs a predictions Parquet whose index spans tomorrow and
+points the stage at it via the test config + an ``out_dir`` fixture.
 """
 
 from __future__ import annotations
@@ -16,17 +16,12 @@ import pytest
 
 from ddkast.config import Config
 from ddkast.data.store import ParquetStore
-from ddkast.pipeline import submit
+from ddkast.pipeline import format_submission
 
 
 @pytest.fixture
-def submit_config(config: Config, tmp_path: Path) -> Config:
-    return config.model_copy(
-        update={
-            "team_id": "test-team",
-            "submissions_dir": tmp_path / "submissions",
-        }
-    )
+def out_dir(tmp_path: Path) -> Path:
+    return tmp_path / "submissions" / "test-team"
 
 
 def _tomorrow_index() -> pd.DatetimeIndex:
@@ -40,17 +35,15 @@ def _write_predictions(config: Config, series: pd.Series[float]) -> None:
     processed.write(config.processed_predictions, series.to_frame(config.model_target))
 
 
-def test_submit_writes_valid_csv(submit_config: Config) -> None:
+def test_writes_valid_csv(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()
     values = np.linspace(40_000.0, 60_000.0, 24)
-    _write_predictions(submit_config, pd.Series(values, index=idx))
+    _write_predictions(config, pd.Series(values, index=idx))
 
-    submit.run(submit_config)
+    format_submission.run(config, out_dir)
 
     forecast_date = idx[0].date().isoformat()
-    out_path = (
-        submit_config.submissions_dir / submit_config.team_id / f"{forecast_date}.csv"
-    )
+    out_path = out_dir / f"{forecast_date}.csv"
     assert out_path.exists()
 
     df = pd.read_csv(out_path)
@@ -62,60 +55,59 @@ def test_submit_writes_valid_csv(submit_config: Config) -> None:
     assert df["forecast_mw"].dtype == float
 
 
-def test_submit_rejects_short_window(submit_config: Config) -> None:
+def test_rejects_short_window(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()[:23]
-    _write_predictions(submit_config, pd.Series(np.full(23, 50_000.0), index=idx))
+    _write_predictions(config, pd.Series(np.full(23, 50_000.0), index=idx))
 
     with pytest.raises(ValueError, match="Expected 24"):
-        submit.run(submit_config)
+        format_submission.run(config, out_dir)
 
 
-def test_submit_rejects_wrong_start_timestamp(submit_config: Config) -> None:
+def test_rejects_wrong_start_timestamp(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index() + pd.Timedelta(hours=1)
-    _write_predictions(submit_config, pd.Series(np.full(24, 50_000.0), index=idx))
+    _write_predictions(config, pd.Series(np.full(24, 50_000.0), index=idx))
 
     with pytest.raises(ValueError, match="Expected 24|does not match"):
-        submit.run(submit_config)
+        format_submission.run(config, out_dir)
 
 
-def test_submit_rejects_nan(submit_config: Config) -> None:
+def test_rejects_nan(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()
     values = np.full(24, 50_000.0)
     values[5] = np.nan
-    _write_predictions(submit_config, pd.Series(values, index=idx))
+    _write_predictions(config, pd.Series(values, index=idx))
 
     with pytest.raises(ValueError, match="NaN"):
-        submit.run(submit_config)
+        format_submission.run(config, out_dir)
 
 
-def test_submit_rejects_non_positive(submit_config: Config) -> None:
+def test_rejects_non_positive(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()
     values = np.full(24, 50_000.0)
     values[10] = 0.0
-    _write_predictions(submit_config, pd.Series(values, index=idx))
+    _write_predictions(config, pd.Series(values, index=idx))
 
     with pytest.raises(ValueError, match="non-positive"):
-        submit.run(submit_config)
+        format_submission.run(config, out_dir)
 
 
-def test_submit_rejects_infinite(submit_config: Config) -> None:
+def test_rejects_infinite(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()
     values = np.full(24, 50_000.0)
     values[7] = np.inf
-    _write_predictions(submit_config, pd.Series(values, index=idx))
+    _write_predictions(config, pd.Series(values, index=idx))
 
     with pytest.raises(ValueError, match="non-finite"):
-        submit.run(submit_config)
+        format_submission.run(config, out_dir)
 
 
-def test_submit_skips_file_on_validation_failure(submit_config: Config) -> None:
+def test_skips_file_on_validation_failure(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()
     values = np.full(24, 50_000.0)
     values[3] = -1.0
-    _write_predictions(submit_config, pd.Series(values, index=idx))
+    _write_predictions(config, pd.Series(values, index=idx))
 
     with pytest.raises(ValueError):
-        submit.run(submit_config)
+        format_submission.run(config, out_dir)
 
-    team_dir = submit_config.submissions_dir / submit_config.team_id
-    assert not team_dir.exists() or not any(team_dir.iterdir())
+    assert not out_dir.exists() or not any(out_dir.iterdir())

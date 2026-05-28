@@ -49,10 +49,6 @@ class Config(BaseSettings):
     plots_dir: Path = Path("plots")
     figure_format: Literal["pdf", "png"] = "pdf"
 
-    # --- submit (leaderboard) ---
-    team_id: str = "ddkast"
-    submissions_dir: Path = Path("submissions")
-
     # --- inter-stage filenames ---
     raw_load_actual: str = "load_actual"
     raw_load_forecast: str = "load_forecast"

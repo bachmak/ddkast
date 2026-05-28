@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -45,8 +46,8 @@ def _slice_tomorrow_utc(predictions: pd.Series[float]) -> pd.Series[float]:
     return window
 
 
-def run(config: Config) -> None:
-    """Write tomorrow's hourly forecast to a leaderboard-shaped CSV."""
+def run(config: Config, out_dir: Path) -> None:
+    """Write tomorrow's hourly forecast to a leaderboard-shaped CSV under ``out_dir``."""
     processed = ParquetStore(config.processed_dir)
     predictions: pd.Series[float] = processed.read(config.processed_predictions)[
         config.model_target
@@ -63,12 +64,12 @@ def run(config: Config) -> None:
         }
     )
 
-    out_dir = config.submissions_dir / config.team_id
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{forecast_date.isoformat()}.csv"
 
     _console.print(
-        f"[bold]submit[/bold]  writing forecast for {forecast_date} (UTC) → {out_path}…"
+        f"[bold]format-submission[/bold]  writing forecast for {forecast_date} (UTC) "
+        f"→ {out_path}…"
     )
     submission.to_csv(out_path, index=False)
 

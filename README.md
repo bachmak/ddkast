@@ -148,10 +148,10 @@ The solution is a CLI pipeline of independent stages:
 
 ```
 ddkast download → ddkast merge → ddkast train → ddkast predict → ddkast evaluate → ddkast visualise
-                                                              ↘ ddkast submit  (CI-only daily leaderboard CSV)
+                                                              ↘ ddkast format-submission  (CI-only daily leaderboard CSV)
 ```
 
-`evaluate`, `visualise`, and `submit` can each be called independently once `predict` has produced its output — `submit` is wired into CI for the daily leaderboard PR, while `evaluate`/`visualise` are the local-analysis path.
+`evaluate`, `visualise`, and `format-submission` can each be called independently once `predict` has produced its output — `format-submission` is wired into CI for the daily leaderboard PR, while `evaluate`/`visualise` are the local-analysis path.
 
 Each stage reads its input from disk and writes its output to disk.
 This means any stage can be re-run without re-running earlier stages (e.g., retrain without re-downloading, evaluate a different model without retraining).
@@ -394,7 +394,7 @@ ddkast visualise --plots forecast --plots residuals  # subset of series
 
 Output files are written to `plots/` by default (`plots_dir` in `config.toml`).
 
-### `ddkast submit`
+### `ddkast format-submission`
 
 Writes tomorrow's hourly forecast to a CSV in the leaderboard submission schema. Runs automatically every day in CI (`.github/workflows/daily-forecast.yml`), which then commits and opens a pull request against `bartzbeielstein/challenge-leaderboard`.
 
@@ -414,7 +414,7 @@ Writes tomorrow's hourly forecast to a CSV in the leaderboard submission schema.
 
 A failed validation aborts before opening the file — partial CSVs never reach the leaderboard.
 
-**Output path**: `{submissions_dir}/{team_id}/{YYYY-MM-DD}.csv` (defaults to `submissions/ddkast/<tomorrow>.csv`). In CI, `SUBMISSIONS_DIR` is overridden so the CSV is written directly into the leaderboard fork checkout.
+**Usage**: `ddkast format-submission --out-dir PATH`. The stage writes `{out_dir}/{YYYY-MM-DD}.csv` where the date is derived from the forecast window. The team-id segment of the path is not the stage's concern — `Config` deliberately holds no deployment context, so the caller builds the full directory. CI passes `challenge-leaderboard/submissions/${TEAM_ID}` (with `TEAM_ID` set as a GitHub Actions repo variable), writing the CSV directly into the leaderboard fork checkout.
 
 **Deadline**: D-1 23:59 CET. The scheduled workflow runs at 19:00 UTC daily to leave margin.
 

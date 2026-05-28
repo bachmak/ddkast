@@ -8,9 +8,9 @@ import typer
 
 import ddkast.pipeline.download as _download
 import ddkast.pipeline.evaluate as _evaluate
+import ddkast.pipeline.format_submission as _format_submission
 import ddkast.pipeline.merge as _merge
 import ddkast.pipeline.predict as _predict
-import ddkast.pipeline.submit as _submit
 import ddkast.pipeline.train as _train
 import ddkast.pipeline.visualise as _visualise
 from ddkast.config import load
@@ -50,10 +50,19 @@ def evaluate(config: _ConfigOpt = Path("config.toml")) -> None:
     _evaluate.run(load(config))
 
 
-@app.command()
-def submit(config: _ConfigOpt = Path("config.toml")) -> None:
+@app.command(name="format-submission")
+def format_submission(
+    out_dir: Annotated[
+        Path,
+        typer.Option(
+            "--out-dir",
+            help="Directory to write the {YYYY-MM-DD}.csv submission file into.",
+        ),
+    ],
+    config: _ConfigOpt = Path("config.toml"),
+) -> None:
     """Write tomorrow's hourly forecast to the leaderboard submission schema."""
-    _submit.run(load(config))
+    _format_submission.run(load(config), out_dir)
 
 
 @app.command()
