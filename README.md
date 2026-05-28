@@ -144,11 +144,14 @@ Our model must beat this baseline on a held-out test set.
 
 ## Solution Overview
 
-The solution is a CLI pipeline with six stages that can be run independently:
+The solution is a CLI pipeline of independent stages:
 
 ```
 ddkast download → ddkast merge → ddkast train → ddkast predict → ddkast evaluate → ddkast visualise
+                                                              ↘ ddkast submit  (CI-only daily leaderboard CSV)
 ```
+
+`evaluate`, `visualise`, and `submit` can each be called independently once `predict` has produced its output — `submit` is wired into CI for the daily leaderboard PR, while `evaluate`/`visualise` are the local-analysis path.
 
 Each stage reads its input from disk and writes its output to disk.
 This means any stage can be re-run without re-running earlier stages (e.g., retrain without re-downloading, evaluate a different model without retraining).
@@ -391,7 +394,29 @@ ddkast visualise --plots forecast --plots residuals  # subset of series
 
 Output files are written to `plots/` by default (`plots_dir` in `config.toml`).
 
-<!-- TODO: document the `ddkast report` stage — emails tomorrow's hourly forecast (UTC) to a configured recipient, runs daily in CI via .github/workflows/daily-forecast.yml. -->
+### `ddkast submit`
+
+Writes tomorrow's hourly forecast to a CSV in the leaderboard submission schema. Runs automatically every day in CI (`.github/workflows/daily-forecast.yml`), which then commits and opens a pull request against `bartzbeielstein/challenge-leaderboard`.
+
+**Schema** (24 rows, one per UTC hour starting at tomorrow 00:00):
+
+| Column | Type | Notes |
+|---|---|---|
+| `timestamp_utc` | ISO 8601 (`YYYY-MM-DDTHH:MM:SSZ`) | 24 consecutive UTC hours |
+| `forecast_mw` | float | Strictly positive, finite, no NaN |
+
+**Validation** — the stage refuses to write if any of the following fails:
+
+1. Exactly 24 rows in the tomorrow window
+2. First timestamp is tomorrow 00:00 UTC
+3. All values are strictly positive
+4. No NaN or infinite values
+
+A failed validation aborts before opening the file — partial CSVs never reach the leaderboard.
+
+**Output path**: `{submissions_dir}/{team_id}/{YYYY-MM-DD}.csv` (defaults to `submissions/ddkast/<tomorrow>.csv`). In CI, `SUBMISSIONS_DIR` is overridden so the CSV is written directly into the leaderboard fork checkout.
+
+**Deadline**: D-1 23:59 CET. The scheduled workflow runs at 19:00 UTC daily to leave margin.
 
 ---
 

@@ -62,11 +62,11 @@
       "justMyCode": false
     },
     {
-      "name": "report",
+      "name": "submit",
       "type": "debugpy",
       "request": "launch",
       "module": "ddkast",
-      "args": ["report"],
+      "args": ["submit"],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "justMyCode": false

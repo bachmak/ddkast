@@ -5,7 +5,6 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -50,14 +49,9 @@ class Config(BaseSettings):
     plots_dir: Path = Path("plots")
     figure_format: Literal["pdf", "png"] = "pdf"
 
-    # --- report (email) ---
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: SecretStr = SecretStr("")
-    smtp_use_tls: bool = True
-    email_from: str = ""
-    email_to: str = ""
+    # --- submit (leaderboard) ---
+    team_id: str = "ddkast"
+    submissions_dir: Path = Path("submissions")
 
     # --- inter-stage filenames ---
     raw_load_actual: str = "load_actual"

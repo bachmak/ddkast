@@ -2,10 +2,11 @@ name: Daily forecast
 
 on:
   schedule:
-    # 20:00 UTC daily (22:00 Europe/Berlin during CET, 21:00 during CEST).
+    # 19:00 UTC daily (21:00 Europe/Berlin during CET, 20:00 during CEST) —
+    # safely before the D-1 23:59 CET leaderboard submission deadline.
     # Forecast horizon (48h) and TEST_DAYS=0 are set in env below so predict
     # produces a forward-looking forecast that covers tomorrow 00:00–23:00 UTC.
-    - cron: "0 20 * * *"
+    - cron: "0 19 * * *"
   workflow_dispatch:
 
 jobs:
@@ -15,22 +16,32 @@ jobs:
       ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}
       TEST_DAYS: "0"
       HORIZON: "48"
-      SMTP_HOST: ${{ secrets.SMTP_HOST }}
-      SMTP_PORT: ${{ secrets.SMTP_PORT }}
-      SMTP_USER: ${{ secrets.SMTP_USER }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
-      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      TEAM_ID: ${{ vars.TEAM_ID || 'ddkast' }}
+      LEADERBOARD_FORK: ${{ vars.LEADERBOARD_FORK }}
+      LEADERBOARD_UPSTREAM: bartzbeielstein/challenge-leaderboard
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Checkout pipeline repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           python-version: "3.13"
           enable-cache: true
 
       - run: uv sync
+
+      - name: Checkout leaderboard fork
+        env:
+          GH_TOKEN: ${{ secrets.LEADERBOARD_PAT }}
+        run: |
+          gh repo clone "$LEADERBOARD_FORK" challenge-leaderboard -- --depth=1
+          cd challenge-leaderboard
+          git remote add upstream "https://github.com/$LEADERBOARD_UPSTREAM.git"
+          git fetch upstream main --depth=1
+          git checkout -B main upstream/main
+          git config user.name "ddkast-bot"
+          git config user.email "ddkast-bot@users.noreply.github.com"
 
       - name: Download
         run: uv run ddkast download
@@ -44,5 +55,40 @@ jobs:
       - name: Predict
         run: uv run ddkast predict
 
-      - name: Report
-        run: uv run ddkast report
+      - name: Submit (write CSV into fork)
+        env:
+          SUBMISSIONS_DIR: challenge-leaderboard/submissions
+        run: uv run ddkast submit
+
+      - name: Compute target date
+        id: target
+        run: echo "date=$(date -u -d 'tomorrow' +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate submission (leaderboard's own validator)
+        working-directory: challenge-leaderboard
+        run: |
+          if [ -f scripts/validate_submission.py ]; then
+            uv run --no-project python scripts/validate_submission.py \
+              --path "submissions/${TEAM_ID}/${{ steps.target.outputs.date }}.csv" \
+              --skip-deadline
+          else
+            echo "No upstream validator found; skipping."
+          fi
+
+      - name: Commit, push, and open PR
+        working-directory: challenge-leaderboard
+        env:
+          GH_TOKEN: ${{ secrets.LEADERBOARD_PAT }}
+          TARGET: ${{ steps.target.outputs.date }}
+        run: |
+          BRANCH="submission/${TEAM_ID}-${TARGET}"
+          git switch -c "$BRANCH"
+          git add "submissions/${TEAM_ID}/${TARGET}.csv"
+          git commit -m "${TEAM_ID}: submission for ${TARGET}"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --repo "$LEADERBOARD_UPSTREAM" \
+            --base main \
+            --head "${LEADERBOARD_FORK%%/*}:${BRANCH}" \
+            --title "${TEAM_ID}: submission for ${TARGET}" \
+            --body "Automated submission from ddkast for ${TARGET} (UTC)."
