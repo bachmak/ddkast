@@ -49,9 +49,14 @@ class Config(BaseSettings):
     plots_dir: Path = Path("plots")
     figure_format: Literal["pdf", "png"] = "pdf"
 
+    # --- weather ---
+    weather_latitude: float = 50.110924
+    weather_longitude: float = 8.682127
+
     # --- inter-stage filenames ---
     raw_load_actual: str = "load_actual"
     raw_load_forecast: str = "load_forecast"
+    raw_weather: str = "weather_raw"
     processed_load: str = "load_clean"
     processed_entso_forecast: str = "forecast_entso"
     processed_test: str = "load_test"
