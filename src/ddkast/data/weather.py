@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -7,8 +8,8 @@ from spotforecast2_safe.weather import WeatherService
 
 
 def fetch_weather(
-    start: pd.Timestamp,
-    end: pd.Timestamp,
+    start: datetime,
+    end: datetime,
     latitude: float,
     longitude: float,
     use_forecast: bool,
@@ -30,4 +31,9 @@ def fetch_weather(
         cache_path=cache_path,
         use_forecast=use_forecast,
     )
-    return ws.get_dataframe(start=start, end=end, freq="h", fill_missing=False)
+    return ws.get_dataframe(
+        start=pd.Timestamp(start, tz="UTC"),
+        end=pd.Timestamp(end, tz="UTC"),
+        freq="h",
+        fill_missing=False,
+    )
