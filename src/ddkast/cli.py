@@ -10,6 +10,7 @@ import ddkast.pipeline.download as _download
 import ddkast.pipeline.evaluate as _evaluate
 import ddkast.pipeline.merge as _merge
 import ddkast.pipeline.predict as _predict
+import ddkast.pipeline.report as _report
 import ddkast.pipeline.train as _train
 import ddkast.pipeline.visualise as _visualise
 from ddkast.config import load
@@ -47,6 +48,12 @@ def predict(config: _ConfigOpt = Path("config.toml")) -> None:
 def evaluate(config: _ConfigOpt = Path("config.toml")) -> None:
     """Evaluate forecast accuracy against the baseline and ground truth."""
     _evaluate.run(load(config))
+
+
+@app.command()
+def report(config: _ConfigOpt = Path("config.toml")) -> None:
+    """Email tomorrow's hourly forecast (UTC) to the configured recipient."""
+    _report.run(load(config))
 
 
 @app.command()

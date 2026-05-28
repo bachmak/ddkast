@@ -391,6 +391,8 @@ ddkast visualise --plots forecast --plots residuals  # subset of series
 
 Output files are written to `plots/` by default (`plots_dir` in `config.toml`).
 
+<!-- TODO: document the `ddkast report` stage — emails tomorrow's hourly forecast (UTC) to a configured recipient, runs daily in CI via .github/workflows/daily-forecast.yml. -->
+
 ---
 
 ## Models

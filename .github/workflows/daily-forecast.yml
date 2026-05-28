@@ -1,0 +1,48 @@
+name: Daily forecast
+
+on:
+  schedule:
+    # 20:00 UTC daily (22:00 Europe/Berlin during CET, 21:00 during CEST).
+    # Forecast horizon (48h) and TEST_DAYS=0 are set in env below so predict
+    # produces a forward-looking forecast that covers tomorrow 00:00–23:00 UTC.
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    env:
+      ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}
+      TEST_DAYS: "0"
+      HORIZON: "48"
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - run: uv sync
+
+      - name: Download
+        run: uv run ddkast download
+
+      - name: Merge
+        run: uv run ddkast merge
+
+      - name: Train
+        run: uv run ddkast train
+
+      - name: Predict
+        run: uv run ddkast predict
+
+      - name: Report
+        run: uv run ddkast report
