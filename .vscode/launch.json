@@ -62,11 +62,11 @@
       "justMyCode": false
     },
     {
-      "name": "submit",
+      "name": "format-submission",
       "type": "debugpy",
       "request": "launch",
       "module": "ddkast",
-      "args": ["submit"],
+      "args": ["format-submission"],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "justMyCode": false

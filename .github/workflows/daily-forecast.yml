@@ -85,10 +85,10 @@ jobs:
           git switch -c "$BRANCH"
           git add "submissions/${TEAM_ID}/${TARGET}.csv"
           git commit -m "${TEAM_ID}: submission for ${TARGET}"
-          git push -u origin "$BRANCH"
+          git push --force -u origin "$BRANCH"
           gh pr create \
             --repo "$LEADERBOARD_UPSTREAM" \
             --base main \
-            --head "${LEADERBOARD_FORK%%/*}:${BRANCH}" \
+            --head "$(gh repo view "$LEADERBOARD_FORK" --json owner --jq '.owner.login'):${BRANCH}" \
             --title "${TEAM_ID}: submission for ${TARGET}" \
             --body "Automated submission from ${TEAM_ID} for ${TARGET} (UTC)."
