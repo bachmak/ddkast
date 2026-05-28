@@ -52,7 +52,6 @@ class Config(BaseSettings):
     # --- weather ---
     weather_latitude: float = 50.110924
     weather_longitude: float = 8.682127
-    weather_cache_dir: Path = Path("data/cache")
 
     # --- inter-stage filenames ---
     raw_load_actual: str = "load_actual"

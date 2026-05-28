@@ -26,7 +26,6 @@ test_days = 30
 # --- weather ---
 weather_latitude  = 50.110924
 weather_longitude = 8.682127
-weather_cache_dir = "data/cache"
 
 # --- inter-stage filenames ---
 raw_load_actual          = "load_actual"
