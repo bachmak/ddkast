@@ -30,3 +30,11 @@ def run(config: Config) -> None:
         f"  [green]✓[/green] {len(forecast):,} rows → "
         f"{config.processed_dir / config.processed_entso_forecast}.parquet"
     )
+
+    _console.print("  passing through weather…")
+    weather = raw.read(config.raw_weather)
+    processed.write(config.processed_weather, weather)
+    _console.print(
+        f"  [green]✓[/green] {len(weather):,} weather rows → "
+        f"{config.processed_dir / config.processed_weather}.parquet"
+    )
