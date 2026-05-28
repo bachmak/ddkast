@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from rich.console import Console
 
 from ddkast.config import Config
@@ -7,6 +9,23 @@ from ddkast.data.store import ParquetStore
 from ddkast.preprocessing.clean import clean
 
 _console = Console()
+
+
+def _passthrough(
+    raw: ParquetStore,
+    processed: ParquetStore,
+    label: str,
+    raw_key: str,
+    processed_key: str,
+    processed_dir: Path,
+) -> None:
+    _console.print(f"  passing through {label}…")
+    data = raw.read(raw_key)
+    processed.write(processed_key, data)
+    _console.print(
+        f"  [green]✓[/green] {len(data):,} rows → "
+        f"{processed_dir / processed_key}.parquet"
+    )
 
 
 def run(config: Config) -> None:
@@ -23,10 +42,20 @@ def run(config: Config) -> None:
         f"{config.processed_dir / config.processed_load}.parquet"
     )
 
-    _console.print("  passing through ENTSO-E day-ahead forecast…")
-    forecast = raw.read(config.raw_load_forecast)
-    processed.write(config.processed_entso_forecast, forecast)
-    _console.print(
-        f"  [green]✓[/green] {len(forecast):,} rows → "
-        f"{config.processed_dir / config.processed_entso_forecast}.parquet"
+    _passthrough(
+        raw,
+        processed,
+        "ENTSO-E day-ahead forecast",
+        config.raw_load_forecast,
+        config.processed_entso_forecast,
+        config.processed_dir,
+    )
+
+    _passthrough(
+        raw,
+        processed,
+        "weather",
+        config.raw_weather,
+        config.processed_weather,
+        config.processed_dir,
     )

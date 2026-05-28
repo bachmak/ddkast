@@ -58,6 +58,7 @@ class Config(BaseSettings):
     raw_load_forecast: str = "load_forecast"
     raw_weather: str = "weather_raw"
     processed_load: str = "load_clean"
+    processed_weather: str = "weather_processed"
     processed_entso_forecast: str = "forecast_entso"
     processed_test: str = "load_test"
     processed_predictions: str = "load_predicted"
