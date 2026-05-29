@@ -52,20 +52,45 @@ assert_file() {
     echo "✗ missing expected artifact: $1" >&2
     exit 1
   fi
+  if [[ "$1" == *.parquet ]]; then
+    local rows
+    rows=$(uv run python -c "import pyarrow.parquet as pq; print(pq.read_metadata('$1').num_rows)")
+    if [[ "$rows" == "0" ]]; then
+      echo "✗ empty parquet (0 rows): $1" >&2
+      exit 1
+    fi
+  fi
   echo "  ✓ $1"
 }
 
 echo "── asserting artifacts ────────────────────────────"
-assert_file "$DATA_DIR/raw/load_actual.parquet"
-assert_file "$DATA_DIR/raw/load_forecast.parquet"
-assert_file "$DATA_DIR/raw/weather_raw.parquet"
-assert_file "$DATA_DIR/processed/load_clean.parquet"
-assert_file "$DATA_DIR/processed/forecast_entso.parquet"
-assert_file "$DATA_DIR/processed/weather_processed.parquet"
-assert_file "$DATA_DIR/processed/load_test.parquet"
-assert_file "$DATA_DIR/processed/load_predicted.parquet"
-assert_file "$DATA_DIR/processed/evaluation_series.parquet"
-assert_file "$MODELS_DIR/forecaster_load_mw.joblib"
+# Derive artifact names from Config defaults so renames stay in sync.
+eval "$(uv run python - <<'EOF'
+from ddkast.config import Config
+c = Config(entsoe_api_key="x")
+print(f"RAW_LOAD_ACTUAL={c.raw_load_actual}")
+print(f"RAW_LOAD_FORECAST={c.raw_load_forecast}")
+print(f"RAW_WEATHER={c.raw_weather}")
+print(f"PROCESSED_LOAD={c.processed_load}")
+print(f"PROCESSED_ENTSO={c.processed_entso_forecast}")
+print(f"PROCESSED_WEATHER={c.processed_weather}")
+print(f"PROCESSED_TEST={c.processed_test}")
+print(f"PROCESSED_PREDICTIONS={c.processed_predictions}")
+print(f"EVAL_SERIES={c.evaluation_series}")
+print(f"MODEL_TARGET={c.model_target}")
+EOF
+)"
+
+assert_file "$DATA_DIR/raw/$RAW_LOAD_ACTUAL.parquet"
+assert_file "$DATA_DIR/raw/$RAW_LOAD_FORECAST.parquet"
+assert_file "$DATA_DIR/raw/$RAW_WEATHER.parquet"
+assert_file "$DATA_DIR/processed/$PROCESSED_LOAD.parquet"
+assert_file "$DATA_DIR/processed/$PROCESSED_ENTSO.parquet"
+assert_file "$DATA_DIR/processed/$PROCESSED_WEATHER.parquet"
+assert_file "$DATA_DIR/processed/$PROCESSED_TEST.parquet"
+assert_file "$DATA_DIR/processed/$PROCESSED_PREDICTIONS.parquet"
+assert_file "$DATA_DIR/processed/$EVAL_SERIES.parquet"
+assert_file "$MODELS_DIR/forecaster_${MODEL_TARGET}.joblib"
 assert_file "$PLOTS_DIR/forecast_analysis.pdf"
 
 echo "✅ smoke test passed"

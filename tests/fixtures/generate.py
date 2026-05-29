@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ddkast.config import Config, load
+from ddkast.config import Config
 from ddkast.data.store import ParquetStore
 from ddkast.data.weather import WEATHER_COLS
 
@@ -59,33 +59,14 @@ def _synthetic_load(index: pd.DatetimeIndex, rng: np.random.Generator) -> np.nda
     return _BASE_MW + daily + weekly + noise
 
 
-def _synthetic_weather(
-    index: pd.DatetimeIndex, rng: np.random.Generator
-) -> pd.DataFrame:
-    n = len(index)
-    hours = index.hour.to_numpy(dtype=float)
-    # Plausible winter values; only need to be the right dtype/columns — the
-    # pipeline passes weather straight through without validating it.
-    temperature = 3.0 - 4.0 * np.cos(2 * np.pi * hours / 24) + rng.normal(0, 0.5, n)
-    columns: dict[str, np.ndarray] = {
-        "temperature_2m": temperature,
-        "relative_humidity_2m": rng.uniform(70, 100, n),
-        "precipitation": rng.uniform(0, 1.5, n),
-        "rain": rng.uniform(0, 1.0, n),
-        "snowfall": rng.uniform(0, 0.5, n),
-        "weather_code": rng.integers(0, 4, n).astype(float),
-        "pressure_msl": rng.uniform(1000, 1025, n),
-        "surface_pressure": rng.uniform(995, 1020, n),
-        "cloud_cover": rng.uniform(0, 100, n),
-        "cloud_cover_low": rng.uniform(0, 100, n),
-        "cloud_cover_mid": rng.uniform(0, 100, n),
-        "cloud_cover_high": rng.uniform(0, 100, n),
-        "wind_speed_10m": rng.uniform(0, 30, n),
-        "wind_direction_10m": rng.uniform(0, 360, n),
-        "wind_gusts_10m": rng.uniform(0, 45, n),
-    }
-    assert list(columns) == WEATHER_COLS
-    return pd.DataFrame(columns, index=index)
+def make_weather(start: pd.Timestamp, end: pd.Timestamp, seed: int = 0) -> pd.DataFrame:
+    """Synthetic hourly weather frame covering [start, end] at UTC, all WEATHER_COLS."""
+    idx = pd.date_range(start, end, freq="1h", tz="UTC")
+    rng = np.random.default_rng(seed)
+    return pd.DataFrame(
+        {col: rng.uniform(0.0, 100.0, len(idx)) for col in WEATHER_COLS},
+        index=idx,
+    )
 
 
 def generate(out_dir: Path, config: Config) -> None:
@@ -111,13 +92,17 @@ def generate(out_dir: Path, config: Config) -> None:
     )
 
     # Hourly UTC weather.
-    weather_index = pd.date_range(start=_START, end=_END, freq="h", tz="UTC")
-    store.write(config.raw_weather, _synthetic_weather(weather_index, rng))
+    store.write(
+        config.raw_weather,
+        make_weather(
+            pd.Timestamp(_START, tz="UTC"), pd.Timestamp(_END, tz="UTC"), seed=_SEED
+        ),
+    )
 
 
 def main() -> None:
     out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else _DEFAULT_DIR
-    generate(out_dir, load())
+    generate(out_dir, Config(entsoe_api_key="unused-by-generate"))
     print(f"wrote fixtures to {out_dir}/")
 
 

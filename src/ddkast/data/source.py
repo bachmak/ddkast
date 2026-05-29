@@ -63,16 +63,33 @@ class FixtureDataSource:
         self._store = ParquetStore(config.fixtures_dir)
 
     def load_actual(self, start: datetime, end: datetime) -> pd.DataFrame:
-        return _slice(self._store.read(self._config.raw_load_actual), start, end)
+        return _slice(
+            self._store.read(self._config.raw_load_actual),
+            start,
+            end,
+            name=self._config.raw_load_actual,
+        )
 
     def load_forecast(self, start: datetime, end: datetime) -> pd.DataFrame:
-        return _slice(self._store.read(self._config.raw_load_forecast), start, end)
+        return _slice(
+            self._store.read(self._config.raw_load_forecast),
+            start,
+            end,
+            name=self._config.raw_load_forecast,
+        )
 
     def weather(self, start: datetime, end: datetime) -> pd.DataFrame:
-        return _slice(self._store.read(self._config.raw_weather), start, end)
+        return _slice(
+            self._store.read(self._config.raw_weather),
+            start,
+            end,
+            name=self._config.raw_weather,
+        )
 
 
-def _slice(df: pd.DataFrame, start: datetime, end: datetime) -> pd.DataFrame:
+def _slice(
+    df: pd.DataFrame, start: datetime, end: datetime, *, name: str = ""
+) -> pd.DataFrame:
     """Return rows whose timestamp falls in [start, end), comparing in UTC.
 
     Works for both tz-aware index resolutions in our fixtures (Europe/Berlin
@@ -84,7 +101,14 @@ def _slice(df: pd.DataFrame, start: datetime, end: datetime) -> pd.DataFrame:
     end_ts = pd.Timestamp(end, tz="UTC")
     idx_utc = df.index.tz_convert("UTC")
     mask = (idx_utc >= start_ts) & (idx_utc < end_ts)  # type: ignore[operator]
-    return df.loc[mask]
+    result = df.loc[mask]
+    if result.empty:
+        label = f" '{name}'" if name else ""
+        raise ValueError(
+            f"Fixture{label} has no rows in [{start_ts}, {end_ts}). "
+            f"Fixture range: {df.index.min()} – {df.index.max()}"
+        )
+    return result
 
 
 def make_data_source(config: Config) -> DataSource:
