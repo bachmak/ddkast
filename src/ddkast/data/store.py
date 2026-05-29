@@ -9,11 +9,19 @@ import pandas as pd
 class DataStore(Protocol):
     def read(self, name: str) -> pd.DataFrame: ...
     def write(self, name: str, df: pd.DataFrame) -> None: ...
+    def exists(self, name: str) -> bool: ...
 
 
 class ParquetStore:
     def __init__(self, base_dir: Path) -> None:
         self._base = base_dir
+
+    @property
+    def base_dir(self) -> Path:
+        return self._base
+
+    def exists(self, name: str) -> bool:
+        return (self._base / f"{name}.parquet").exists()
 
     def read(self, name: str) -> pd.DataFrame:
         path = self._base / f"{name}.parquet"

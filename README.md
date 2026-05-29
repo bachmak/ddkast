@@ -324,6 +324,19 @@ Fetches two datasets from the ENTSO-E Transparency Platform in a single pass:
 Both are written to `data/raw/` via `ParquetStore` under the names configured in `config.toml`.
 The date range (`download_start` → `download_end`) is configurable; the default covers Jan 2022 – Apr 2026.
 
+Downloads are **incremental**: each run reads what is already stored and fetches only the
+missing forward tail `(stored_max, end]`, appending it in place. Extending `download_end` by a
+day therefore costs one day of API calls, not a full re-download. If the stored range no longer
+lines up with the request (e.g. `download_start` moved earlier), the whole range is re-fetched as
+a fallback. Appending raises if it would leave a gap at the seam. Pass `--full` to ignore stored
+data and re-fetch everything — useful for picking up upstream revisions (e.g. provisional weather
+values that are later corrected):
+
+```bash
+uv run ddkast download          # incremental: appends only the new tail
+uv run ddkast download --full   # re-fetch the entire range
+```
+
 ### `ddkast merge`
 
 Reads the raw actual load, runs it through `preprocessing/clean.py`:

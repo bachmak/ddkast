@@ -21,9 +21,19 @@ _ConfigOpt = Annotated[Path, typer.Option("--config", "-c", help="Path to config
 
 
 @app.command()
-def download(config: _ConfigOpt = Path("config.toml")) -> None:
+def download(
+    config: _ConfigOpt = Path("config.toml"),
+    full: Annotated[
+        bool,
+        typer.Option(
+            "--full",
+            help="Re-fetch the entire range, ignoring existing data "
+            "(default: append only the missing forward tail).",
+        ),
+    ] = False,
+) -> None:
     """Fetch raw load data from ENTSO-E."""
-    _download.run(load(config))
+    _download.run(load(config), full=full)
 
 
 @app.command()
