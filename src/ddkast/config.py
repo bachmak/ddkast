@@ -5,7 +5,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 
 class Config(BaseSettings):
@@ -14,6 +18,18 @@ class Config(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # OS env > .env > init (config.toml) > secrets.
+        return (env_settings, dotenv_settings, init_settings, file_secret_settings)
 
     entsoe_api_key: str
 
