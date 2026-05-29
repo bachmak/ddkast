@@ -8,6 +8,7 @@ models/*
 !models/.gitkeep
 plots/
 tests/fixtures/smoke/
+submissions/
 
 # python
 .venv/

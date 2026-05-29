@@ -66,7 +66,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "ddkast",
-      "args": ["format-submission"],
+      "args": ["format-submission", "--out-dir", "${workspaceFolder}/submissions"],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "justMyCode": false
@@ -85,6 +85,16 @@
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/scripts/run_pipeline.py",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
+      "name": "all tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests"],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "justMyCode": false
