@@ -40,6 +40,10 @@ class Config(BaseSettings):
     data_dir: Path = Path("data")
     models_dir: Path = Path("models")
 
+    # --- data source ---
+    data_source: Literal["api", "fixtures"] = "api"
+    fixtures_dir: Path = Path("tests/fixtures/smoke")
+
     # --- download ---
     download_start: date = date(2022, 1, 1)
     download_end: date = date(2026, 4, 30)

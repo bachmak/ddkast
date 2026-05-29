@@ -221,7 +221,7 @@ cli.py  (thin: parse args, call pipeline)
 | Testing | `pytest` | Standard |
 | Linting + formatting | `ruff` | Replaces flake8 + isort + black in one fast tool |
 | Type checking | `pyright` (strict) | Runs in VS Code via Pylance (inline errors) and in CI; strict mode requires full annotations |
-| CI | GitHub Actions | Runs on pushes to `main` and all PRs; three parallel jobs: lint + format, type check, test (≥ 80% coverage required) |
+| CI | GitHub Actions | Runs on pushes to `main` and all PRs; four parallel jobs: lint + format, type check, test (≥ 80% coverage required), and an offline end-to-end pipeline smoke test |
 | Pre-commit | `pre-commit` + ruff + pyright | Catches issues before they reach the remote |
 
 ### Why `spotforecast2-safe` and not `spotforecast2`?
@@ -484,6 +484,7 @@ uv run pytest tests/test_metrics.py   # single file
 | `test_features.py` | ExogBuilder output shape, column names, holiday/weekend flags |
 | `test_forecaster.py` | fit/forecast roundtrip, output length, index alignment, missing-model error |
 | `test_pipeline_e2e.py` | Full train → predict → evaluate on synthetic data (no API key needed) |
+| `test_source.py` | `DataSource` factory selection; fixture schema and `[start, end)` window slice |
 
 ### What is not mocked
 
@@ -491,6 +492,32 @@ Tests use real fixture data (synthetic `pd.DataFrame` values) rather than mockin
 The end-to-end test writes directly to `ParquetStore` and runs all three pipeline stages, giving confidence that the stages wire together correctly.
 
 Mocking the data layer risks the mock drifting from reality — a historical failure mode where tests pass but production breaks on real data shapes.
+
+### Smoke test
+
+`test_pipeline_e2e.py` exercises `train → predict → evaluate` in-process; it skips
+`download` and `merge` and never touches the CLI. The **smoke test** closes that
+gap by running the whole CLI pipeline end-to-end on every CI run — proving no
+stage crashes, no CLI command is mis-wired, and no inter-stage contract has
+drifted.
+
+```bash
+./scripts/smoke_test.sh        # all six stages on generated fixtures, then assert artifacts
+```
+
+It is fully offline: `Config.data_source="fixtures"` swaps the live ENTSO-E /
+Open-Meteo calls for synthetic parquet fixtures via the `DataSource` abstraction
+— no API key, no network. The fixtures are generated on demand (gitignored, never
+committed) into a temp dir by the script itself, with `tests/fixtures/generate.py`
+as the single source of truth. Every knob (timespan, lags, test days, horizon,
+output dirs) is an environment variable, and all writes are isolated to a temp
+dir, so the repo stays pristine. The same script runs as the `smoke` job in CI.
+
+To materialise the fixtures for manual inspection (deterministic, seeded):
+
+```bash
+uv run python tests/fixtures/generate.py [out_dir]   # default: tests/fixtures/smoke/
+```
 
 ---
 

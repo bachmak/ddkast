@@ -7,6 +7,7 @@ data/*
 models/*
 !models/.gitkeep
 plots/
+tests/fixtures/smoke/
 
 # python
 .venv/
