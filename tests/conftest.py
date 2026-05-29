@@ -8,26 +8,7 @@ import pandas as pd
 import pytest
 
 from ddkast.config import Config
-
-# The 15 hourly variables Open-Meteo returns (WeatherClient.HOURLY_PARAMS),
-# in order. build_exog_matrix joins these onto the calendar features.
-WEATHER_COLS = [
-    "temperature_2m",
-    "relative_humidity_2m",
-    "precipitation",
-    "rain",
-    "snowfall",
-    "weather_code",
-    "pressure_msl",
-    "surface_pressure",
-    "cloud_cover",
-    "cloud_cover_low",
-    "cloud_cover_mid",
-    "cloud_cover_high",
-    "wind_speed_10m",
-    "wind_direction_10m",
-    "wind_gusts_10m",
-]
+from ddkast.data.weather import WEATHER_COLS
 
 
 @pytest.fixture

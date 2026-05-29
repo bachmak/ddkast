@@ -6,6 +6,24 @@ from pathlib import Path
 import pandas as pd
 from spotforecast2_safe.weather import WeatherService
 
+WEATHER_COLS: list[str] = [
+    "temperature_2m",
+    "relative_humidity_2m",
+    "precipitation",
+    "rain",
+    "snowfall",
+    "weather_code",
+    "pressure_msl",
+    "surface_pressure",
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+]
+
 
 def fetch_weather(
     start: datetime,
