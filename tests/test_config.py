@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -40,7 +39,9 @@ def test_dotenv_overrides_init_kwargs(
     assert cfg.lags == 77
 
 
-def test_load_uses_toml_when_no_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_uses_toml_when_no_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     toml = tmp_path / "config.toml"
     toml.write_text('entsoe_api_key = "toml_key"\nlags = 55\n')
     monkeypatch.chdir(tmp_path)
@@ -49,7 +50,9 @@ def test_load_uses_toml_when_no_env(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert cfg.entsoe_api_key == "toml_key"
 
 
-def test_env_var_overrides_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_env_var_overrides_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     toml = tmp_path / "config.toml"
     toml.write_text('entsoe_api_key = "toml_key"\nlags = 55\n')
     monkeypatch.setenv("LAGS", "999")
