@@ -6,6 +6,24 @@ from pathlib import Path
 import pandas as pd
 from spotforecast2_safe.weather import WeatherService
 
+WEATHER_COLS: list[str] = [
+    "temperature_2m",
+    "relative_humidity_2m",
+    "precipitation",
+    "rain",
+    "snowfall",
+    "weather_code",
+    "pressure_msl",
+    "surface_pressure",
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+]
+
 
 def fetch_weather(
     start: datetime,
@@ -31,9 +49,15 @@ def fetch_weather(
         cache_path=cache_path,
         use_forecast=use_forecast,
     )
-    return ws.get_dataframe(
+    df = ws.get_dataframe(
         start=pd.Timestamp(start, tz="UTC"),
         end=pd.Timestamp(end, tz="UTC"),
         freq="h",
         fill_missing=False,
     )
+    missing = set(WEATHER_COLS) - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"WeatherService response is missing expected columns: {sorted(missing)}"
+        )
+    return df[WEATHER_COLS]

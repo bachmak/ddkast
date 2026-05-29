@@ -4,6 +4,8 @@ Uses synthetic data written directly to the processed store — no API call need
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,8 +22,10 @@ def e2e_config(config: Config) -> Config:
 
 
 @pytest.fixture
-def synthetic_processed(e2e_config: Config) -> None:
-    """Write synthetic clean load + ENTSO-E DAF to the processed store."""
+def synthetic_processed(
+    e2e_config: Config, make_weather: Callable[..., pd.DataFrame]
+) -> None:
+    """Write synthetic clean load + ENTSO-E DAF + weather to the processed store."""
     processed = ParquetStore(e2e_config.processed_dir)
 
     # 7-day naive needs data 168h before the first forecast timestamp.
@@ -36,6 +40,10 @@ def synthetic_processed(e2e_config: Config) -> None:
     daf_values = load_values + rng.normal(0, 500, 250)
     daf_df = pd.DataFrame({"forecast_mw": daf_values}, index=idx)
     processed.write(e2e_config.processed_entso_forecast, daf_df)
+
+    # Weather spans the same window so build_exog_matrix has a row per timestamp.
+    weather_df = make_weather(idx[0], idx[-1], seed=123)
+    processed.write(e2e_config.processed_weather, weather_df)
 
 
 def test_train_creates_model_and_test_split(
@@ -59,8 +67,8 @@ def test_predict_creates_predictions(
     assert predictions_path.exists()
 
     processed = ParquetStore(e2e_config.processed_dir)
-    preds = processed.read(e2e_config.processed_predictions)
-    assert len(preds) == e2e_config.horizon
+    predictions = processed.read(e2e_config.processed_predictions)
+    assert len(predictions) == e2e_config.horizon
 
 
 def test_evaluate_runs_without_error(
