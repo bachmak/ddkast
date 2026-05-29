@@ -5,7 +5,6 @@ from spotforecast2_safe import ExogBuilder
 from spotforecast2_safe.data.data import Period
 
 from ddkast.config import Config
-from ddkast.data.weather import WEATHER_COLS
 
 
 def _build_exog_builder(config: Config) -> ExogBuilder:
@@ -49,13 +48,9 @@ def build_exog_matrix(
     Column count = rbf_periods_hour + rbf_periods_dow + rbf_periods_month
                    + 2 (holidays, is_weekend) + weather_df.shape[1] weather columns.
     """
-    missing = set(WEATHER_COLS) - set(weather_df.columns)
-    if missing:
-        raise ValueError(f"weather_df is missing expected columns: {sorted(missing)}")
-
     exog_cal = _build_exog_builder(config).build(start, end)
 
-    exog = exog_cal.join(weather_df[WEATHER_COLS], how="left")
+    exog = exog_cal.join(weather_df, how="left")
 
     nan_count = int(exog.isna().sum().sum())
     if nan_count > 0:

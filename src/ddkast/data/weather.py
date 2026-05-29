@@ -49,9 +49,15 @@ def fetch_weather(
         cache_path=cache_path,
         use_forecast=use_forecast,
     )
-    return ws.get_dataframe(
+    df = ws.get_dataframe(
         start=pd.Timestamp(start, tz="UTC"),
         end=pd.Timestamp(end, tz="UTC"),
         freq="h",
         fill_missing=False,
     )
+    missing = set(WEATHER_COLS) - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"WeatherService response is missing expected columns: {sorted(missing)}"
+        )
+    return df[WEATHER_COLS]

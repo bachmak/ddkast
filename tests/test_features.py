@@ -96,13 +96,3 @@ def test_exog_raises_on_nan(
     weather_df.iloc[0, 0] = np.nan
     with pytest.raises(ValueError, match="NaN"):
         build_exog_matrix(start, end, weather_df, config)
-
-
-def test_exog_raises_on_missing_weather_columns(
-    config: Config, make_weather: Callable[..., pd.DataFrame]
-) -> None:
-    start = pd.Timestamp("2024-01-01", tz="UTC")
-    end = pd.Timestamp("2024-01-01 23:00:00", tz="UTC")
-    weather_df = make_weather(start, end).drop(columns=["temperature_2m", "wind_speed_10m"])
-    with pytest.raises(ValueError, match="missing expected columns"):
-        build_exog_matrix(start, end, weather_df, config)
