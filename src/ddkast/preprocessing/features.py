@@ -46,7 +46,7 @@ def build_exog_matrix(
 
     Returns a DataFrame indexed hourly from start to end with no NaN.
     Column count = rbf_periods_hour + rbf_periods_dow + rbf_periods_month
-                   + 2 (holidays, is_weekend) + 15 weather columns.
+                   + 2 (holidays, is_weekend) + weather_df.shape[1] weather columns.
     """
     exog_cal = _build_exog_builder(config).build(start, end)
 
