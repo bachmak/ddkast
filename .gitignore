@@ -30,3 +30,6 @@ notebooks/.ipynb_checkpoints/
 
 .idea/
 .coverage
+
+# claude worktrees
+.claude/worktrees/
