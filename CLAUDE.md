@@ -13,6 +13,7 @@ Open questions for the professor: see `QUESTIONS.md`.
 - 6-stage CLI pipeline: `download → merge → train → predict → evaluate → visualise`
 - Each stage lives in `pipeline/<stage>.py` and exposes a `run(config)` entry point
 - `DataStore` protocol (`src/ddkast/data/store.py`) with `ParquetStore` as the concrete implementation
+- `DataSource` protocol (`src/ddkast/data/source.py`) feeds `download`: `ApiDataSource` (live ENTSO-E + Open-Meteo) vs `FixtureDataSource` (offline parquet fixtures, generated on demand and gitignored — never committed), selected by `config.data_source` (`"api"` default / `"fixtures"`). The `"fixtures"` mode + `tests/fixtures/generate.py` + `scripts/smoke_test.sh` drive the offline CI pipeline smoke test (`generate.py` is the single source of truth: the pytest session fixture and the smoke script each generate into a temp dir)
 - `Config` is passed explicitly as an argument everywhere — never a global or singleton
 - `cli.py` stays thin: argument parsing + `pipeline.X.run(config)` calls only
 

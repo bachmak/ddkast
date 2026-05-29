@@ -9,6 +9,7 @@ import pytest
 
 from ddkast.config import Config
 from ddkast.data.weather import WEATHER_COLS
+from tests.fixtures.generate import generate
 
 
 @pytest.fixture
@@ -17,6 +18,22 @@ def config(tmp_path: Path) -> Config:
         entsoe_api_key="test_key",
         data_dir=tmp_path / "data",
         models_dir=tmp_path / "models",
+    )
+
+
+@pytest.fixture(scope="session")
+def smoke_fixtures_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Generate the offline smoke fixtures once per session (gitignored, on demand)."""
+    out_dir = tmp_path_factory.mktemp("smoke_fixtures")
+    generate(out_dir, Config(entsoe_api_key="test_key"))
+    return out_dir
+
+
+@pytest.fixture
+def fixtures_config(config: Config, smoke_fixtures_dir: Path) -> Config:
+    """A fixtures-mode Config pointed at the freshly generated smoke fixtures."""
+    return config.model_copy(
+        update={"data_source": "fixtures", "fixtures_dir": smoke_fixtures_dir}
     )
 
 
