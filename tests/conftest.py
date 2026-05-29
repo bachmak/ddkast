@@ -9,7 +9,8 @@ import pytest
 
 from ddkast.config import Config
 from ddkast.data.weather import WEATHER_COLS
-from tests.fixtures.generate import generate, make_weather as _make_weather
+from tests.fixtures.generate import generate
+from tests.fixtures.generate import make_weather as _make_weather
 
 
 @pytest.fixture
