@@ -42,8 +42,8 @@ def synthetic_processed(
     processed.write(e2e_config.processed_entso_forecast, daf_df)
 
     # Weather spans the same window so build_exog_matrix has a row per timestamp.
-    weather = make_weather(idx[0], idx[-1], seed=123)
-    processed.write(e2e_config.processed_weather, weather)
+    weather_df = make_weather(idx[0], idx[-1], seed=123)
+    processed.write(e2e_config.processed_weather, weather_df)
 
 
 def test_train_creates_model_and_test_split(
@@ -67,8 +67,8 @@ def test_predict_creates_predictions(
     assert predictions_path.exists()
 
     processed = ParquetStore(e2e_config.processed_dir)
-    preds = processed.read(e2e_config.processed_predictions)
-    assert len(preds) == e2e_config.horizon
+    predictions = processed.read(e2e_config.processed_predictions)
+    assert len(predictions) == e2e_config.horizon
 
 
 def test_evaluate_runs_without_error(

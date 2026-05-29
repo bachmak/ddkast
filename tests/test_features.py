@@ -92,7 +92,7 @@ def test_exog_raises_on_nan(
     # A NaN in the joined matrix must fail fast rather than reach the model.
     start = pd.Timestamp("2024-01-01", tz="UTC")
     end = pd.Timestamp("2024-01-01 23:00:00", tz="UTC")
-    weather = make_weather(start, end)
-    weather.iloc[0, 0] = np.nan
+    weather_df = make_weather(start, end)
+    weather_df.iloc[0, 0] = np.nan
     with pytest.raises(ValueError, match="NaN"):
-        build_exog_matrix(start, end, weather, config)
+        build_exog_matrix(start, end, weather_df, config)

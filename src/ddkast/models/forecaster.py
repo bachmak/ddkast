@@ -23,9 +23,9 @@ def _with_freq(series: pd.Series[float]) -> pd.Series[float]:
     return series
 
 
-def fit(df: pd.DataFrame, weather_df: pd.DataFrame, config: Config) -> None:
-    """Fit a recursive forecaster on df and persist it to config.models_dir."""
-    series: pd.Series[float] = _with_freq(df[config.model_target])
+def fit(load_df: pd.DataFrame, weather_df: pd.DataFrame, config: Config) -> None:
+    """Fit a recursive forecaster on load_df and persist it to config.models_dir."""
+    series: pd.Series[float] = _with_freq(load_df[config.model_target])
     exog = build_exog_matrix(series.index.min(), series.index.max(), weather_df, config)
 
     forecaster: ForecasterRecursive = ForecasterRecursive(
@@ -43,7 +43,7 @@ def fit(df: pd.DataFrame, weather_df: pd.DataFrame, config: Config) -> None:
 
 
 def forecast(
-    df: pd.DataFrame, weather_df: pd.DataFrame, config: Config
+    load_df: pd.DataFrame, weather_df: pd.DataFrame, config: Config
 ) -> pd.Series[float]:
     """Load the persisted model and return a forecast of length config.horizon."""
     # save_forecaster stores files as forecaster_{target}.joblib
@@ -53,7 +53,7 @@ def forecast(
             f"No trained model found at {model_path}. Run `ddkast train` first."
         )
     forecaster: ForecasterRecursive = joblib_load(model_path)  # type: ignore[assignment]
-    last_ts: pd.Timestamp = df.index[-1]  # type: ignore[assignment]
+    last_ts: pd.Timestamp = load_df.index[-1]  # type: ignore[assignment]
     forecast_start = last_ts + pd.Timedelta(hours=1)
     forecast_end = last_ts + pd.Timedelta(hours=config.horizon)
 
