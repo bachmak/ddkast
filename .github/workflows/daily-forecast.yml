@@ -28,15 +28,25 @@ jobs:
 
       - run: uv sync
 
-      - name: Checkout leaderboard fork
+      - name: Check out leaderboard fork
         env:
           GH_TOKEN: ${{ secrets.LEADERBOARD_PAT }}
         run: |
-          gh repo clone "$LEADERBOARD_FORK" challenge-leaderboard -- --depth=1
+          # Wire git's credential helper to gh so the later `git push` to the
+          # fork authenticates with GH_TOKEN (a plain https remote URL carries
+          # no embedded token).
+          gh auth setup-git
+          # Deliberately do NOT sync the fork from upstream. Upstream's main
+          # carries workflow files (.github/workflows/*) the fork lacks, and
+          # GitHub refuses to land those — whether via `git push` or the
+          # fork-sync `merge-upstream` API — unless LEADERBOARD_PAT holds the
+          # `workflow` scope, which we keep off it (least privilege). We instead
+          # branch the submission off the fork's OWN main, so the push carries
+          # only our CSV commit. The PR is opened against upstream; GitHub does
+          # that merge server-side, where our token's scope is irrelevant.
+          FORK=$(gh repo view "$LEADERBOARD_FORK" --json nameWithOwner --jq '.nameWithOwner')
+          git clone --depth=1 "https://github.com/$FORK.git" challenge-leaderboard
           cd challenge-leaderboard
-          git remote add upstream "https://github.com/$LEADERBOARD_UPSTREAM.git"
-          git fetch upstream main --depth=1
-          git checkout -B main upstream/main
           git config user.name "${TEAM_ID}-bot"
           git config user.email "${TEAM_ID}-bot@users.noreply.github.com"
 
