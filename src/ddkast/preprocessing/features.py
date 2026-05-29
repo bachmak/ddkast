@@ -54,7 +54,9 @@ def build_exog_matrix(
 
     missing_rows = len(exog_cal) - len(exog)
     if missing_rows != 0:
-        raise ValueError(f"Exog matrix lost {missing_rows} rows after calendar+weather join")
+        raise ValueError(
+            f"Exog matrix lost {missing_rows} rows after calendar+weather join"
+        )
 
     nan_count = int(exog.isna().sum().sum())
     if nan_count > 0:
