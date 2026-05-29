@@ -2,10 +2,7 @@ name: Daily forecast
 
 on:
   schedule:
-    # 19:00 UTC daily (21:00 Europe/Berlin during CET, 20:00 during CEST) —
-    # safely before the D-1 23:59 CET leaderboard submission deadline.
-    # Forecast horizon (48h) and TEST_DAYS=0 are set in env below so predict
-    # produces a forward-looking forecast that covers tomorrow 00:00–23:00 UTC.
+    # 19:00 UTC daily
     - cron: "0 19 * * *"
   workflow_dispatch:
 
@@ -15,7 +12,7 @@ jobs:
     env:
       ENTSOE_API_KEY: ${{ secrets.ENTSOE_API_KEY }}
       TEST_DAYS: "0"
-      HORIZON: "48"
+      HORIZON: "48" # to surely cover the whole next day
       TEAM_ID: ${{ vars.TEAM_ID }}
       LEADERBOARD_FORK: ${{ vars.LEADERBOARD_FORK }}
       LEADERBOARD_UPSTREAM: bartzbeielstein/challenge-leaderboard
@@ -43,11 +40,28 @@ jobs:
           git config user.name "${TEAM_ID}-bot"
           git config user.email "${TEAM_ID}-bot@users.noreply.github.com"
 
+      - name: Set dynamic download_end (today UTC)
+        # download.py adds one day, so end = tomorrow 00:00 → fetches all of
+        # today's available actuals (matches the lecture's END_DOWNLOAD = TODAY_UTC).
+        run: echo "DOWNLOAD_END=$(date -u +%F)" >> "$GITHUB_ENV"
+
       - name: Download
         run: uv run ddkast download
 
       - name: Merge
         run: uv run ddkast merge
+
+      - name: Assert data is fresh
+        run: |
+          uv run python -c "
+          import pandas as pd, sys
+          from ddkast.config import load
+          from ddkast.data.store import ParquetStore
+          c = load()
+          ts = ParquetStore(c.processed_dir).read(c.processed_load).index.max()
+          need = pd.Timestamp.now(tz='UTC').normalize() - pd.Timedelta(hours=1)
+          sys.exit(0 if ts >= need else f'stale: last actual {ts} < {need}')
+          "
 
       - name: Train
         run: uv run ddkast train
@@ -77,6 +91,8 @@ jobs:
 
       - name: Commit, push, and open PR
         working-directory: challenge-leaderboard
+        # Upstream CI runs validate_authorship() against the PR author, so
+        # LEADERBOARD_PAT's owner must be a registered handle
         env:
           GH_TOKEN: ${{ secrets.LEADERBOARD_PAT }}
           TARGET: ${{ steps.target.outputs.date }}

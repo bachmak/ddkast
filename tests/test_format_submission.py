@@ -55,6 +55,19 @@ def test_writes_valid_csv(config: Config, out_dir: Path) -> None:
     assert df["forecast_mw"].dtype == float
 
 
+def test_rounds_to_two_decimals(config: Config, out_dir: Path) -> None:
+    idx = _tomorrow_index()
+    # Values with >2 decimals; the stage must round for leaderboard parity.
+    _write_predictions(config, pd.Series(np.full(24, 50_000.123456), index=idx))
+
+    format_submission.run(config, out_dir)
+
+    forecast_date = idx[0].date().isoformat()
+    df = pd.read_csv(out_dir / f"{forecast_date}.csv")
+    assert (df["forecast_mw"] == df["forecast_mw"].round(2)).all()
+    assert (df["forecast_mw"] == 50_000.12).all()
+
+
 def test_rejects_short_window(config: Config, out_dir: Path) -> None:
     idx = _tomorrow_index()[:23]
     _write_predictions(config, pd.Series(np.full(23, 50_000.0), index=idx))

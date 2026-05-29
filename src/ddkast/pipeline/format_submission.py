@@ -60,7 +60,8 @@ def run(config: Config, out_dir: Path) -> None:
     submission = pd.DataFrame(
         {
             "timestamp_utc": index.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "forecast_mw": window.to_numpy().astype(float),
+            # Round to 2 decimals for leaderboard parity (lecture §13.5.3 y0.round(2)).
+            "forecast_mw": window.to_numpy().round(2).astype(float),
         }
     )
 
