@@ -291,23 +291,27 @@ def test_merge_resamples_weather_to_hourly(config: Config) -> None:
     )
 
 
-def test_merge_trims_weather_to_load_range_and_drops_nan(config: Config) -> None:
-    """Weather is trimmed to the load range; in-range NaN is a soft drop (#10 AC-8).
+def test_merge_drops_preload_archive_but_keeps_forecast_tail(config: Config) -> None:
+    """Weather is lower-bound trimmed; the forecast tail past load is kept (#23).
 
-    Open-Meteo's publication lag and over-long history mean weather rarely lines
-    up with load exactly, so trimming is soft: keep only the load-range overlap
-    and drop (not raise on) any residual NaN. Here weather runs a week past load
-    and carries one in-range NaN — the tail must be trimmed off and the NaN hour
-    dropped, with no exception.
+    Weather is exog on the model path: predict runs with ``test_days=0`` and so
+    forecasts *beyond* the load tail, which means the weather frame must extend
+    past ``load.max`` (its forecast hours, capped at ~now+horizon by
+    fetch_weather) or build_exog_matrix gets an all-NaN future exog and raises.
+    So merge only drops the over-long archive before the load start — it must
+    NOT cap weather at the load grid. Here weather runs from well before load to
+    a week past it: the pre-load archive is dropped, the post-load tail survives.
+    Trimming stays soft, so an in-range NaN hour is dropped, not raised on.
     """
-    weather_index = pd.date_range("2024-01-01", "2024-01-15", freq="1h", tz="UTC")
+    weather_index = pd.date_range("2023-12-20", "2024-01-15", freq="1h", tz="UTC")
     _write_raw_inputs(config, load_index=_WEEK_BERLIN)
     weather = pd.DataFrame(
         {col: np.linspace(0.0, 100.0, len(weather_index)) for col in WEATHER_COLS},
         index=weather_index,
     )
-    nan_hour = weather_index[5]
-    weather.iloc[5] = np.nan
+    preload_hour = pd.Timestamp("2023-12-25 00:00", tz="UTC")
+    nan_hour = pd.Timestamp("2024-01-03 12:00", tz="UTC")
+    weather.loc[nan_hour] = np.nan
     ParquetStore(config.raw_dir).write(config.raw_weather, weather)
 
     merge.run(config)  # must not raise — weather gaps are a soft failure
@@ -315,9 +319,16 @@ def test_merge_trims_weather_to_load_range_and_drops_nan(config: Config) -> None
     store = ParquetStore(config.processed_dir)
     load = store.read(config.processed_load)
     weather_out = store.read(config.processed_weather)
-    assert weather_out.index.max() <= load.index.max(), (
-        "processed weather extends past the load range; merge must trim weather "
-        "to the load grid (Open-Meteo can publish beyond the load coverage)"
+    assert weather_out.index.max() > load.index.max(), (
+        "merge capped weather at the load grid; the forecast hours past load.max "
+        "must survive so predict (test_days=0) has future exog (#23)"
+    )
+    assert weather_out.index.min() >= load.index.min(), (
+        "merge kept weather older than the load start; the over-long pre-load "
+        "archive must be lower-bound trimmed off the model frame"
+    )
+    assert preload_hour not in weather_out.index, (
+        "a pre-load archive hour survived the lower-bound trim"
     )
     assert nan_hour not in weather_out.index, (
         "merge kept an in-range weather hour that was NaN; residual weather NaN "
