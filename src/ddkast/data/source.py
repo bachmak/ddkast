@@ -46,7 +46,7 @@ class ApiDataSource:
             end=end,
             latitude=self._config.weather_latitude,
             longitude=self._config.weather_longitude,
-            use_forecast=False,
+            horizon=self._config.horizon,
         )
 
 
