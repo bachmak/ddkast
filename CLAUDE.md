@@ -4,6 +4,17 @@
 - All data access goes through the `DataStore` protocol. Never read/write Parquet files directly in pipeline or model code.
 - `cli.py` must contain no business logic.
 
+### spotforecast2-safe code rules (CR-1 to CR-4)
+
+These are non-negotiable; every module must comply:
+
+| Rule | Short form | Requirement |
+|------|-----------|-------------|
+| CR-1 | No dead code | Every function, class, and branch must be reached by a test or docstring example. |
+| CR-2 | Determinism | Same input → bit-identical output. Fixed seeds, fixed iteration order. |
+| CR-3 | Fail-safe processing | Invalid inputs (NaN, wrong dtype) raise an explicit exception — never silently imputed. |
+| CR-4 | Minimal CVE attack surface | Short, versioned deny-list of forbidden dependencies enforced by a test against the lockfile. |
+
 ## Key decisions already made
 
 - Parquet storage decoupled behind `DataStore` protocol
