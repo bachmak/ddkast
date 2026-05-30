@@ -8,8 +8,10 @@
 
 ``merge`` is where they become a single analysis-ready, hourly-UTC dataset.
 Load is cleaned and resampled to the hourly grid; DAF and weather are
-tz-normalised to UTC and aligned onto that same grid so downstream stages can
-join them without surprises.
+tz-normalised to UTC. DAF is reindexed onto the load grid (evaluate lines the
+benchmark up against the actuals). Weather is exog on the model path, so it is
+only lower-bound trimmed to the load start — its forecast hours past the load
+tail are kept so predict has future exog (#23).
 
 Failure policy (issue #10): load is the spine, so a NaN left on the cleaned
 load grid is a hard error. DAF and weather quality is independent of load, so
@@ -81,15 +83,23 @@ def _align_daf(raw: ParquetStore, load_index: pd.Index, config: Config) -> pd.Da
 def _align_weather(
     raw: ParquetStore, load_index: pd.Index, config: Config
 ) -> pd.DataFrame:
-    """Resample weather to hourly UTC and trim it to the load range (soft gaps).
+    """Resample weather to hourly UTC, drop the pre-load archive, keep the tail.
 
-    Open-Meteo's publication lag and long history mean weather rarely lines up
-    with load exactly, so trimming is soft: keep only the load-range overlap and
-    drop any residual NaN inside it rather than aborting.
+    Unlike DAF — which is reindexed onto the load grid so evaluate can line the
+    benchmark up against the actuals — weather is exog on the *model* path. It is
+    needed both over the training range (where it overlaps load) and over the
+    future forecast window, which by definition sits beyond the load tail when
+    predict runs with ``test_days=0``. So weather is only lower-bound trimmed:
+    the over-long archive before the load start is dropped, but the forecast
+    hours past ``load.max`` are preserved so predict has future exog (#23). Their
+    upper bound is already capped at ~now+horizon upstream by ``fetch_weather``.
+
+    Trimming stays soft (Open-Meteo's publication lag rarely lines up with load
+    exactly): drop any residual NaN inside the kept range rather than aborting.
     """
     _console.print("  aligning weather onto the load grid…")
     weather = _to_hourly_utc(raw.read(config.raw_weather), config)
-    in_range = (weather.index >= load_index.min()) & (weather.index <= load_index.max())
+    in_range = weather.index >= load_index.min()
     trimmed = cast(pd.DataFrame, weather.loc[in_range])
     result = trimmed.dropna()
     _warn_dropped(len(trimmed) - len(result), "weather")
