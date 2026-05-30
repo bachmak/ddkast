@@ -28,6 +28,14 @@ These are non-negotiable; every module must comply:
 - Cleaning: IQR multiplier 3.0, max 3-hour linear interpolation; gaps longer than that cause the surrounding window to be rejected (fail-safe). Both values are configurable.
 - All inter-stage filenames (e.g. `raw_load_actual`, `processed_load`) are fields in `Config` — nothing hardcoded in pipeline or model code
 
+### spotforecast2-safe API gotchas
+
+- `mark_outliers`/`get_outliers` use IsolationForest — use `manual_outlier_removal` with IQR bounds instead.
+- `LinearlyInterpolateTS` has no `limit` param — use pandas `interpolate(method="linear", limit=N)`.
+- `remove_duplicate_timestamps` expects a column, not a DatetimeIndex — use `agg_and_resample_data` instead.
+- Never use `ForecasterRecursiveModel` — it does its own data loading and bypasses `DataStore`.
+- Load persisted forecasters with `joblib.load` directly — no public load counterpart exists in the library.
+
 ## Working with Claude
 
 Before scaffolding or implementing any new module, feature, or significant design decision, interview the user about every relevant aspect — **one question at a time**, with a recommended answer and reasoning for each. Walk down the dependency tree of decisions in order. This process surfaces assumptions early and prevents rework. Do not batch questions; do not jump straight to code.
