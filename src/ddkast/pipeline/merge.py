@@ -74,7 +74,7 @@ def _align_daf(raw: ParquetStore, load_index: pd.Index, config: Config) -> pd.Da
         limit_area="inside",
     )
     daf = daf.dropna()
-    _warn_dropped(len(load_index) - len(daf))
+    _warn_dropped(len(load_index) - len(daf), "DAF")
     return daf
 
 
@@ -90,8 +90,10 @@ def _align_weather(
     _console.print("  aligning weather onto the load grid…")
     weather = _to_hourly_utc(raw.read(config.raw_weather), config)
     in_range = (weather.index >= load_index.min()) & (weather.index <= load_index.max())
-    trimmed = cast("pd.DataFrame", weather.loc[in_range])
-    return trimmed.dropna()
+    trimmed = cast(pd.DataFrame, weather.loc[in_range])
+    result = trimmed.dropna()
+    _warn_dropped(len(trimmed) - len(result), "weather")
+    return result
 
 
 def _to_hourly_utc(df: pd.DataFrame, config: Config) -> pd.DataFrame:
@@ -117,11 +119,11 @@ def _require_gap_free(load: pd.DataFrame) -> None:
         )
 
 
-def _warn_dropped(dropped: int) -> None:
-    """Report DAF rows lost off the load grid or beyond the interpolation limit."""
+def _warn_dropped(dropped: int, label: str) -> None:
+    """Report rows lost off the load grid or beyond the interpolation limit."""
     if dropped > 0:
         _console.print(
-            f"  [yellow]⚠[/yellow] dropped {dropped:,} DAF hour(s) off the load "
+            f"  [yellow]⚠[/yellow] dropped {dropped:,} {label} hour(s) off the load "
             "grid or beyond the interpolation limit"
         )
 
