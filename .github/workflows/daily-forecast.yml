@@ -2,8 +2,8 @@ name: Daily forecast
 
 on:
   schedule:
-    # 19:00 UTC daily
-    - cron: "0 19 * * *"
+    # 17:00 UTC daily
+    - cron: "0 17 * * *"
   workflow_dispatch:
 
 jobs:
