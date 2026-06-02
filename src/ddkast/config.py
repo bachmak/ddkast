@@ -93,6 +93,10 @@ class Config(BaseSettings):
     def processed_dir(self) -> Path:
         return self.data_dir / "processed"
 
+    @property
+    def audit_dir(self) -> Path:
+        return self.data_dir / "audit"
+
 
 def load(config_path: Path = Path("config.toml")) -> Config:
     data: dict[str, Any] = {}

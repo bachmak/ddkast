@@ -24,5 +24,8 @@ class ParquetStore:
         return pd.read_parquet(path)
 
     def write(self, name: str, df: pd.DataFrame) -> None:
-        self._base.mkdir(parents=True, exist_ok=True)
-        df.to_parquet(self._base / f"{name}.parquet")
+        # mkdir the file's *parent* so a nested name like "predictions/<fold_id>"
+        # creates its subdirectory, not just the base dir.
+        path = self._base / f"{name}.parquet"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(path)
