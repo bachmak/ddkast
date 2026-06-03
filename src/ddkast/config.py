@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import tomllib
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -61,7 +61,11 @@ class Config(BaseSettings):
 
     # --- train ---
     lags: int = 168
-    test_days: int = 30
+
+    # --- forecast origins (rolling) ---
+    n_forecasts: int = 365
+    forecasts_start: datetime = datetime(2025, 5, 1, 23, tzinfo=UTC)
+    forecasts_end: datetime = datetime(2026, 4, 30, 23, tzinfo=UTC)
 
     # --- visualise ---
     backend: Literal["plotly", "matplotlib"] = "plotly"
