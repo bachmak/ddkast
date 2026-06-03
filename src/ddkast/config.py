@@ -99,4 +99,8 @@ def load(config_path: Path = Path("config.toml")) -> Config:
     if config_path.exists():
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
+    local_path = config_path.with_stem(config_path.stem + ".local")
+    if local_path.exists():
+        with open(local_path, "rb") as f:
+            data.update(tomllib.load(f))
     return Config(**data)

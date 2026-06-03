@@ -35,3 +35,4 @@ notebooks/.ipynb_checkpoints/
 
 # claude worktrees
 .claude/worktrees/
+config.local.toml

@@ -61,6 +61,28 @@ def test_env_var_overrides_toml(
     assert cfg.lags == 999
 
 
+def test_local_toml_overrides_base_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    toml = tmp_path / "config.toml"
+    toml.write_text('entsoe_api_key = "key"\nlags = 55\n')
+    local = tmp_path / "config.local.toml"
+    local.write_text("lags = 77\n")
+    monkeypatch.chdir(tmp_path)
+    cfg = load(toml)
+    assert cfg.lags == 77
+
+
+def test_missing_local_toml_is_ignored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    toml = tmp_path / "config.toml"
+    toml.write_text('entsoe_api_key = "key"\nlags = 55\n')
+    monkeypatch.chdir(tmp_path)
+    cfg = load(toml)
+    assert cfg.lags == 55
+
+
 def test_load_missing_toml_uses_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
