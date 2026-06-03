@@ -61,6 +61,7 @@ class Config(BaseSettings):
 
     # --- train ---
     lags: int = 168
+    test_days: int = 30
 
     # --- forecast origins (rolling) ---
     n_forecasts: int = 365
