@@ -1,88 +1,84 @@
-"""End-to-end smoke test for the train → predict → evaluate pipeline stages.
-Uses synthetic data written directly to the processed store — no API call needed.
+"""End-to-end smoke test for the fold-based train → predict → evaluate stages.
+
+Uses synthetic data written directly to the processed store (the ``write_processed``
+conftest fixture) — no API call needed. This module only checks the stages wire
+together and produce the expected fold artifacts.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-import numpy as np
-import pandas as pd
 import pytest
 
 from ddkast.config import Config
 from ddkast.data.store import ParquetStore
+from ddkast.folds import build_folds
 from ddkast.pipeline import evaluate, predict, train
+from tests.synthetic import fold_window
+
+# Tiny lags + a couple of daily folds so the test stays fast.
+_FOLDS = 2
+_PERIODS = 24 * 12  # 12 days: covers 168h naive lookback + training history
 
 
 @pytest.fixture
 def e2e_config(config: Config) -> Config:
-    # Tiny lags and short test window so the test stays fast
-    return config.model_copy(update={"lags": 5, "test_days": 2, "horizon": 6})
+    return config.model_copy(
+        update={"lags": 24, "horizon": 24, **fold_window(_PERIODS, _FOLDS)}
+    )
 
 
 @pytest.fixture
-def synthetic_processed(
-    e2e_config: Config, make_weather: Callable[..., pd.DataFrame]
-) -> None:
-    """Write synthetic clean load + ENTSO-E DAF + weather to the processed store."""
-    processed = ParquetStore(e2e_config.processed_dir)
-
-    # 7-day naive needs data 168h before the first forecast timestamp.
-    # With test_days=2, forecast starts at hour N-48; naive needs N-216.
-    # 250 hours guarantees the lookback window is covered.
-    idx = pd.date_range("2024-01-01", periods=250, freq="1h", tz="UTC")
-    rng = np.random.default_rng(99)
-    load_values = rng.uniform(40_000, 60_000, len(idx))
-    load_df = pd.DataFrame({e2e_config.model_target: load_values}, index=idx)
-    processed.write(e2e_config.processed_load, load_df)
-
-    daf_values = load_values + rng.normal(0, 500, 250)
-    daf_df = pd.DataFrame({"forecast_mw": daf_values}, index=idx)
-    processed.write(e2e_config.processed_entso_forecast, daf_df)
-
-    # Weather spans the same window so build_exog_matrix has a row per timestamp.
-    weather_df = make_weather(idx[0], idx[-1], seed=123)
-    processed.write(e2e_config.processed_weather, weather_df)
+def seeded(
+    e2e_config: Config, write_processed: Callable[[Config, int], None]
+) -> Config:
+    write_processed(e2e_config, _PERIODS)
+    return e2e_config
 
 
-def test_train_creates_model_and_test_split(
-    synthetic_processed: None, e2e_config: Config
-) -> None:
-    train.run(e2e_config)
-    model_path = e2e_config.models_dir / f"forecaster_{e2e_config.model_target}.joblib"
-    test_path = e2e_config.processed_dir / f"{e2e_config.processed_test}.parquet"
-    assert model_path.exists()
-    assert test_path.exists()
-
-
-def test_predict_creates_predictions(
-    synthetic_processed: None, e2e_config: Config
-) -> None:
-    train.run(e2e_config)
-    predict.run(e2e_config)
-    predictions_path = (
-        e2e_config.processed_dir / f"{e2e_config.processed_predictions}.parquet"
+def test_train_creates_a_model_per_fold(seeded: Config) -> None:
+    train.run(seeded)
+    folds = build_folds(
+        ParquetStore(seeded.processed_dir).read(seeded.processed_load).index,  # type: ignore[arg-type]
+        seeded,
     )
-    assert predictions_path.exists()
-
-    processed = ParquetStore(e2e_config.processed_dir)
-    predictions = processed.read(e2e_config.processed_predictions)
-    assert len(predictions) == e2e_config.horizon
-
-
-def test_evaluate_runs_without_error(
-    synthetic_processed: None,
-    e2e_config: Config,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    train.run(e2e_config)
-    predict.run(e2e_config)
-    evaluate.run(e2e_config)  # should not raise
+    assert len(folds) == _FOLDS + 1  # historical folds + the latest origin
+    for fold in folds:
+        model_path = (
+            seeded.models_dir
+            / "folds"
+            / fold.fold_id
+            / f"forecaster_{seeded.model_target}.joblib"
+        )
+        assert model_path.exists()
 
 
-# TODO: add metric quality gates to this test so CI enforces stable forecasting quality:
-#   1. assert model MAE < naive MAE on synthetic data (model must beat the baseline)
-#   2. assert model MAE is within X% of a stored snapshot (catch silent regressions)
-# Since spotforecast2-safe is deterministic and synthetic data is seeded, results are
-# reproducible — making this a reliable PR gate without an API key.
+def test_predict_writes_per_fold(seeded: Config) -> None:
+    train.run(seeded)
+    predict.run(seeded)
+    processed = ParquetStore(seeded.processed_dir)
+    folds = build_folds(processed.read(seeded.processed_load).index, seeded)  # type: ignore[arg-type]
+
+    # Every fold is forecast identically to predictions/<fold_id>; predict flags no
+    # operational fold — format-submission selects that itself.
+    for fold in folds:
+        preds = processed.read(f"{seeded.predictions_subdir}/{fold.fold_id}")
+        assert len(preds) == seeded.horizon
+
+
+def test_evaluate_writes_evaluation_artifacts(seeded: Config) -> None:
+    train.run(seeded)
+    predict.run(seeded)
+    evaluate.run(seeded)
+    processed = ParquetStore(seeded.processed_dir)
+
+    metrics = processed.read(seeded.evaluation_metrics)
+    # 2 scored folds × {model, naive, daf} forecasters (the latest origin is future).
+    assert set(metrics["forecaster"]) == {"model", "naive", "daf"}
+    assert len(metrics) == _FOLDS * 3
+    assert set(metrics.columns) >= {"fold_id", "origin", "forecaster", "MAE"}
+
+    summary = processed.read(seeded.evaluation_summary)
+    assert "skill_vs_naive" in set(summary["metric"])
+    assert "skill_vs_daf" in set(summary["metric"])
