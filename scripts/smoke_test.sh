@@ -61,7 +61,7 @@ config = load()
 step = pd.Timedelta(config.resolution)
 historical = int(os.environ["FOLDS"])
 forecasts_end = ParquetStore(config.processed_dir).read(config.processed_load).index.max() + step
-forecasts_start = end - historical * pd.Timedelta(hours=24)
+forecasts_start = forecasts_end - historical * pd.Timedelta(hours=24)
 fmt = "%Y-%m-%dT%H:%M:%SZ"
 print(f"export N_FORECASTS={historical + 1}")
 print(f"export FORECASTS_START={forecasts_start.strftime(fmt)}")

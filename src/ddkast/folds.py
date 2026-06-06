@@ -78,7 +78,9 @@ def _build_starts(config: Config, step: pd.Timedelta) -> list[pd.Timestamp]:
     first_start = _as_utc(config.forecasts_start)
     if config.n_forecasts == 1:
         return [first_start]
-    stride = _stride(first_start, _as_utc(config.forecasts_end), config.n_forecasts, step)
+    stride = _stride(
+        first_start, _as_utc(config.forecasts_end), config.n_forecasts, step
+    )
     return [first_start + k * stride for k in range(config.n_forecasts)]
 
 
