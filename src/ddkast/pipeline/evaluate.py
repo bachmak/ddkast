@@ -31,21 +31,14 @@ class _Aligned:
     daf_available: bool
 
 
-def _fold_is_scorable(fold: Fold, last_actual: pd.Timestamp) -> bool:
-    """Whether a fold's forecast block is covered by the actuals — realized vs future.
-
-    This is the single place the system tells realized from not-yet-realized time,
-    and it decides it purely from the latest ground-truth timestamp (CR-3): a block
-    fully past ``last_actual`` is not yet scorable (``False``); a fully covered block
-    is scorable (``True``); a block straddling ``last_actual`` is a data defect and
-    raises rather than scoring a partly-realized block against imputed values.
-    """
-    if fold.forecast_start > last_actual:
+def _fold_is_scorable(fold: Fold, actual_end: pd.Timestamp) -> bool:
+    """Whether a fold's block is covered by the actuals — realized vs future."""
+    if fold.forecast_start >= actual_end:
         return False
-    if fold.forecast_end <= last_actual:
+    if fold.forecast_end <= actual_end:
         return True
     raise ValueError(
-        f"Fold {fold.fold_id}: forecast block straddles the last actual {last_actual} "
+        f"Fold {fold.fold_id}: forecast block straddles the actual end {actual_end} "
         f"({fold.forecast_start} → {fold.forecast_end}); expected it fully realized "
         "or fully in the future."
     )
@@ -228,11 +221,12 @@ def run(config: Config) -> None:
     daf: pd.Series[float] = entso["forecast_mw"]
 
     folds = build_folds(load_df.index, config)  # type: ignore[arg-type]
-    last_actual: pd.Timestamp = target.index.max()  # type: ignore[assignment]
+    step = pd.Timedelta(config.resolution)
+    actual_end: pd.Timestamp = target.index.max() + step  # type: ignore[assignment]
     rows: list[dict[str, object]] = []
     aligned_folds: list[_Aligned] = []
     for fold in folds:
-        if not _fold_is_scorable(fold, last_actual):
+        if not _fold_is_scorable(fold, actual_end):
             continue  # block not yet realized — nothing to score against
         predictions: pd.Series[float] = processed.read(
             f"{config.predictions_subdir}/{fold.fold_id}"
