@@ -32,9 +32,11 @@ from ddkast.data.weather import WEATHER_COLS
 
 _SEED = 20240101
 _DEFAULT_DIR = Path(__file__).parent / "smoke"
-# Wider than the smoke window (2024-01-01 → 2024-01-10) on both sides.
+# Wider than the smoke window (2024-01-01 → 2024-01-18) on both sides — the extra
+# span gives the rolling-origin folds room for their 7-day naive lookback and the
+# latest origin's forecast-weather tail past the load grid.
 _START = "2023-12-31"
-_END = "2024-01-12"
+_END = "2024-01-23"
 
 # Realistic Germany load (MW); kept smooth + positive so clean() drops nothing.
 _BASE_MW = 52_000.0

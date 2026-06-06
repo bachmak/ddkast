@@ -294,8 +294,8 @@ def test_merge_resamples_weather_to_hourly(config: Config) -> None:
 def test_merge_drops_preload_archive_but_keeps_forecast_tail(config: Config) -> None:
     """Weather is lower-bound trimmed; the forecast tail past load is kept (#23).
 
-    Weather is exog on the model path: predict runs with ``test_days=0`` and so
-    forecasts *beyond* the load tail, which means the weather frame must extend
+    Weather is exog on the model path: the latest origin predict forecasts runs
+    *beyond* the load tail, which means the weather frame must extend
     past ``load.max`` (its forecast hours, capped at ~now+horizon by
     fetch_weather) or build_exog_matrix gets an all-NaN future exog and raises.
     So merge only drops the over-long archive before the load start — it must
@@ -321,7 +321,7 @@ def test_merge_drops_preload_archive_but_keeps_forecast_tail(config: Config) -> 
     weather_out = store.read(config.processed_weather)
     assert weather_out.index.max() > load.index.max(), (
         "merge capped weather at the load grid; the forecast hours past load.max "
-        "must survive so predict (test_days=0) has future exog (#23)"
+        "must survive so the latest origin predict forecasts has future exog (#23)"
     )
     assert weather_out.index.min() >= load.index.min(), (
         "merge kept weather older than the load start; the over-long pre-load "

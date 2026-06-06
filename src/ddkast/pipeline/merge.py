@@ -88,8 +88,8 @@ def _align_weather(
     Unlike DAF — which is reindexed onto the load grid so evaluate can line the
     benchmark up against the actuals — weather is exog on the *model* path. It is
     needed both over the training range (where it overlaps load) and over the
-    future forecast window, which by definition sits beyond the load tail when
-    predict runs with ``test_days=0``. So weather is only lower-bound trimmed:
+    future forecast window, which by definition sits beyond the load tail for
+    the latest origin predict forecasts. So weather is only lower-bound trimmed:
     the over-long archive before the load start is dropped, but the forecast
     hours past ``load.max`` are preserved so predict has future exog (#23). Their
     upper bound is already capped at ~now+horizon upstream by ``fetch_weather``.

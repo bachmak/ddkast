@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol
 
 import pandas as pd
@@ -79,10 +79,14 @@ class FixtureDataSource:
         )
 
     def weather(self, start: datetime, end: datetime) -> pd.DataFrame:
+        # Mirror the live source's forecast tail: fetch_weather appends the next
+        # ``horizon`` hours past the archive end so the latest origin predict forecasts
+        # has future exog. Extend the fixture slice the same way (the committed fixture
+        # is generated wide enough to cover it).
         return _slice(
             self._store.read(self._config.raw_weather),
             start,
-            end,
+            end + timedelta(hours=self._config.horizon),
             name=self._config.raw_weather,
         )
 

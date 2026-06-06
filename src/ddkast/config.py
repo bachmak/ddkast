@@ -61,7 +61,6 @@ class Config(BaseSettings):
 
     # --- train ---
     lags: int = 168
-    test_days: int = 30
 
     # --- forecast origins (rolling) ---
     n_forecasts: int = 365
@@ -85,8 +84,9 @@ class Config(BaseSettings):
     processed_load: str = "load_clean"
     processed_weather: str = "weather_processed"
     processed_entso_forecast: str = "forecast_entso"
-    processed_test: str = "load_test"
-    processed_predictions: str = "load_predicted"
+    predictions_subdir: str = "predictions"
+    evaluation_metrics: str = "evaluation_metrics"
+    evaluation_summary: str = "evaluation_summary"
     evaluation_series: str = "evaluation_series"
     model_target: str = "load_mw"
 
