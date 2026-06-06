@@ -47,8 +47,11 @@ def weather_df(
 def _window(
     training_df: pd.DataFrame, config: Config
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
+    # Half-open block: forecast_start is the first stamp past training, forecast_end one
+    # step past the last forecast stamp, so [start, end) spans exactly horizon hours.
     origin: pd.Timestamp = training_df.index[-1]  # type: ignore[assignment]
-    return origin + pd.Timedelta(hours=1), origin + pd.Timedelta(hours=config.horizon)
+    forecast_start = origin + pd.Timedelta(hours=1)
+    return forecast_start, forecast_start + pd.Timedelta(hours=config.horizon)
 
 
 def test_fit_creates_model_file(
