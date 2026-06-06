@@ -64,8 +64,8 @@ class Config(BaseSettings):
 
     # --- forecast origins (rolling) ---
     n_forecasts: int = 365
-    forecasts_start: datetime = datetime(2025, 5, 1, 23, tzinfo=UTC)
-    forecasts_end: datetime = datetime(2026, 4, 30, 23, tzinfo=UTC)
+    forecasts_start: datetime = datetime(2025, 5, 2, 0, tzinfo=UTC)
+    forecasts_end: datetime = datetime(2026, 5, 1, 0, tzinfo=UTC)
 
     # --- visualise ---
     backend: Literal["plotly", "matplotlib"] = "plotly"

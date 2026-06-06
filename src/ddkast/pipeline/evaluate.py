@@ -102,7 +102,7 @@ def _metric_rows(fold: Fold, aligned: _Aligned) -> list[dict[str, object]]:
         rows.append(
             {
                 "fold_id": fold.fold_id,
-                "origin": fold.origin,
+                "origin": fold.forecast_start,
                 "forecaster": name,
                 **metrics,
             }

@@ -36,22 +36,16 @@ def run(config: Config, out_dir: Path) -> None:
 
 
 def _tomorrow_window() -> tuple[pd.Timestamp, pd.Timestamp]:
-    """The submission window: tomorrow 00:00 through 23:00 UTC (24 hourly stamps)."""
+    """The submission window, ``[start, end)``: tomorrow 00:00 UTC up to 23:00 UTC."""
     tomorrow = datetime.now(UTC).date() + timedelta(days=1)
     start = pd.Timestamp(tomorrow, tz="UTC")
-    return start, start + pd.Timedelta(hours=23)
+    return start, start + pd.Timedelta(hours=24)
 
 
 def _select_submission_fold(
     folds: list[Fold], start: pd.Timestamp, end: pd.Timestamp
 ) -> Fold:
-    """The single fold whose forecast block covers the submission window — or raise.
-
-    ``format-submission`` owns picking the operational fold; predict treats every fold
-    the same. A fold covers the window when its block brackets ``[start, end]``. CR-3
-    fail-safe: refuse to guess — raise on zero covering folds (data stale / ``horizon``
-    too short) and on more than one (overlapping strides make it ambiguous).
-    """
+    """The single fold whose forecast block covers the submission window — or raise."""
     covering = [f for f in folds if f.forecast_start <= start and f.forecast_end >= end]
     if len(covering) == 1:
         return covering[0]
@@ -80,7 +74,8 @@ def _slice_window(
     predictions: pd.Series[float], start: pd.Timestamp, end: pd.Timestamp
 ) -> pd.Series[float]:
     """Slice and validate the submission window out of the selected fold's forecast."""
-    window: pd.Series[float] = predictions.loc[start:end]  # type: ignore[misc]
+    idx = predictions.index
+    window: pd.Series[float] = predictions[(idx >= start) & (idx < end)]  # type: ignore[misc,assignment]
 
     if len(window) != 24:
         raise ValueError(

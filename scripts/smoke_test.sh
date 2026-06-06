@@ -58,13 +58,14 @@ import pandas as pd
 from ddkast.config import load
 from ddkast.data.store import ParquetStore
 config = load()
-tail = ParquetStore(config.processed_dir).read(config.processed_load).index.max()
+step = pd.Timedelta(config.resolution)
 historical = int(os.environ["FOLDS"])
-start = tail - historical * pd.Timedelta(hours=24)
+forecasts_end = ParquetStore(config.processed_dir).read(config.processed_load).index.max() + step
+forecasts_start = end - historical * pd.Timedelta(hours=24)
 fmt = "%Y-%m-%dT%H:%M:%SZ"
 print(f"export N_FORECASTS={historical + 1}")
-print(f"export FORECASTS_START={start.strftime(fmt)}")
-print(f"export FORECASTS_END={tail.strftime(fmt)}")
+print(f"export FORECASTS_START={forecasts_start.strftime(fmt)}")
+print(f"export FORECASTS_END={forecasts_end.strftime(fmt)}")
 EOF
 )"
 echo "  $N_FORECASTS forecasts: $FORECASTS_START … $FORECASTS_END"
