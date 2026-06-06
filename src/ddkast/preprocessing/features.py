@@ -42,8 +42,7 @@ def build_exog_matrix(
     weather_df: pd.DataFrame,
     config: Config,
 ) -> pd.DataFrame:
-    """Build full exog matrix: calendar (RBF + holidays) + weather features.
-    """
+    """Build full exog matrix: calendar (RBF + holidays) + weather features."""
 
     # needed because the 'build' library function works with fully closed intervals
     before_end = end - pd.Timedelta(config.resolution)
