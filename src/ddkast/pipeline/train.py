@@ -48,12 +48,12 @@ def _fit_fold(
 
 def _training_window(load_df: pd.DataFrame, fold: Fold) -> pd.DataFrame:
     """The expanding window a fold trains on: every row up to (incl.) its origin."""
-    return load_df.loc[load_df.index <= fold.origin]  # type: ignore[misc,return-value]
+    return load_df.loc[load_df.index < fold.forecast_start]  # type: ignore[misc,return-value]
 
 
 def _report_saved(folds: list[Fold], config: Config) -> None:
     """Report how many fold models were persisted and the latest origin."""
     _console.print(
         f"  [green]✓[/green] {len(folds)} models saved → "
-        f"{config.models_dir / 'folds'}  |  latest origin {folds[-1].origin}"
+        f"{config.models_dir / 'folds'}  |  latest origin {folds[-1].forecast_start}"
     )

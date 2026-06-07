@@ -2,9 +2,9 @@
 
 The stage rebuilds the rolling-origin folds from the configured window, picks the one
 fold whose block covers tomorrow (UTC), and slices that fold's persisted forecast. So
-each test pins a fold origin at today 23:00 UTC — making the single fold's block exactly
-tomorrow — seeds a ``processed_load`` with enough history before it, and writes that
-fold's ``predictions/<id>`` file.
+each test pins a fold's ``forecast_start`` at tomorrow 00:00 UTC — making its half-open
+block exactly tomorrow — seeds a ``processed_load`` with enough history before it, and
+writes that fold's ``predictions/<id>`` file.
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ def out_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def sub_config(config: Config) -> Config:
-    """One fold whose origin sits at today 23:00 UTC — its 24h block is tomorrow."""
-    origin = _today_2300()
+    """One fold; its forecast_start is tomorrow 00:00 UTC, so its block is tomorrow."""
+    origin = _tomorrow_0000()
     return config.model_copy(
         update={
             "lags": 24,
@@ -51,6 +51,11 @@ def _tomorrow_index() -> pd.DatetimeIndex:
 def _today_2300() -> pd.Timestamp:
     today = datetime.now(UTC).date()
     return pd.Timestamp(today, tz="UTC") + pd.Timedelta(hours=23)
+
+
+def _tomorrow_0000() -> pd.Timestamp:
+    tomorrow = datetime.now(UTC).date() + timedelta(days=1)
+    return pd.Timestamp(tomorrow, tz="UTC")
 
 
 def _seed_load(config: Config, last_ts: pd.Timestamp, periods: int = 24 * 3) -> None:
@@ -129,7 +134,7 @@ def test_rejects_no_covering_fold(config: Config, out_dir: Path) -> None:
 
 def test_rejects_ambiguous_folds(config: Config, out_dir: Path) -> None:
     # horizon (48) > stride (24) makes two consecutive 48h blocks both cover tomorrow.
-    end = _today_2300()
+    end = _tomorrow_0000()
     cfg = config.model_copy(
         update={
             "lags": 24,

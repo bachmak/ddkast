@@ -11,10 +11,9 @@ from ddkast.config import Config
 
 @dataclass(frozen=True)
 class Fold:
-    """One rolling origin (last timestamp the model may see) and its forecast block."""
+    """One rolling origin and the half-open forecast block it anchors."""
 
     fold_id: str
-    origin: pd.Timestamp
     forecast_start: pd.Timestamp
     forecast_end: pd.Timestamp
 
@@ -30,10 +29,10 @@ def build_folds(index: pd.DatetimeIndex, config: Config) -> list[Fold]:
     _validate_index(index)
     _validate_knobs(config)
 
-    origins = _origins(config, step)
-    _check_sufficient_history(index, origins[0], config)
+    starts = _build_starts(config, step)
+    _check_sufficient_history(index, starts[0], config)
 
-    return [_make_fold(origin, config, step) for origin in origins]
+    return [_make_fold(start, config) for start in starts]
 
 
 def _resolution_step(config: Config) -> pd.Timedelta:
@@ -73,14 +72,16 @@ def _validate_knobs(config: Config) -> None:
         )
 
 
-def _origins(config: Config, step: pd.Timedelta) -> list[pd.Timestamp]:
-    """The ``n_forecasts`` evenly spaced origins, ``forecasts_start`` to
+def _build_starts(config: Config, step: pd.Timedelta) -> list[pd.Timestamp]:
+    """The ``n_forecasts`` evenly spaced, ``forecasts_start`` to
     ``forecasts_end``."""
-    start = _as_utc(config.forecasts_start)
+    first_start = _as_utc(config.forecasts_start)
     if config.n_forecasts == 1:
-        return [start]
-    stride = _stride(start, _as_utc(config.forecasts_end), config.n_forecasts, step)
-    return [start + k * stride for k in range(config.n_forecasts)]
+        return [first_start]
+    stride = _stride(
+        first_start, _as_utc(config.forecasts_end), config.n_forecasts, step
+    )
+    return [first_start + k * stride for k in range(config.n_forecasts)]
 
 
 def _stride(
@@ -116,19 +117,13 @@ def _check_sufficient_history(
         )
 
 
-def _make_fold(origin: pd.Timestamp, config: Config, step: pd.Timedelta) -> Fold:
+def _make_fold(origin: pd.Timestamp, config: Config) -> Fold:
     """Build the fold anchored at ``origin``: its id and its ``horizon``-hour block."""
     return Fold(
-        fold_id=_fold_id(origin),
-        origin=origin,
-        forecast_start=origin + step,
+        fold_id=origin.strftime("%Y%m%dT%H%M%SZ"),
+        forecast_start=origin,
         forecast_end=origin + pd.Timedelta(hours=config.horizon),
     )
-
-
-def _fold_id(origin: pd.Timestamp) -> str:
-    """Deterministic, filesystem-safe id from the origin timestamp (UTC)."""
-    return origin.strftime("%Y%m%dT%H%M%SZ")
 
 
 def _as_utc(value: object) -> pd.Timestamp:

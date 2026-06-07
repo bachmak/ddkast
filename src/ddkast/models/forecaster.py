@@ -46,7 +46,12 @@ def fit(
     actuals afterwards. Per-fold isolation comes purely from ``model_dir``.
     """
     series: pd.Series[float] = _with_freq(load_df[config.model_target])
-    exog = build_exog_matrix(series.index.min(), series.index.max(), weather_df, config)
+    exog = build_exog_matrix(
+        series.index.min(),
+        series.index.max() + pd.Timedelta(config.resolution),
+        weather_df,
+        config,
+    )
 
     forecaster: ForecasterRecursive = ForecasterRecursive(
         estimator=LGBMRegressor(

@@ -42,13 +42,11 @@ def build_exog_matrix(
     weather_df: pd.DataFrame,
     config: Config,
 ) -> pd.DataFrame:
-    """Build full exog matrix: calendar (RBF + holidays) + weather features.
+    """Build full exog matrix: calendar (RBF + holidays) + weather features."""
 
-    Returns a DataFrame indexed hourly from start to end with no NaN.
-    Column count = rbf_periods_hour + rbf_periods_dow + rbf_periods_month
-                   + 2 (holidays, is_weekend) + weather_df.shape[1] weather columns.
-    """
-    exog_cal = _build_exog_builder(config).build(start, end)
+    # needed because the 'build' library function works with fully closed intervals
+    before_end = end - pd.Timedelta(config.resolution)
+    exog_cal = _build_exog_builder(config).build(start, before_end)
 
     exog = exog_cal.join(weather_df, how="left")
 

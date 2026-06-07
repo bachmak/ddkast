@@ -25,7 +25,7 @@ def test_exog_output_shape(
     weather_cols: list[str],
 ) -> None:
     start = pd.Timestamp("2024-01-01", tz="UTC")
-    end = pd.Timestamp("2024-01-07 23:00:00", tz="UTC")
+    end = pd.Timestamp("2024-01-08", tz="UTC")  # half-open [start, end) → one full week
     exog = build_exog_matrix(start, end, make_weather(start, end), config)
 
     expected_rows = 7 * 24  # one week of hourly data

@@ -22,16 +22,18 @@ def last_ts(periods: int) -> pd.Timestamp:
 def fold_window(
     periods: int, historical_folds: int, stride_hours: int = 24
 ) -> dict[str, object]:
-    """Config update for ``historical_folds`` historical origins plus the live tail.
+    """Config update for ``historical_folds`` realized folds plus the live one.
 
-    Reproduces the previous index-anchored geometry: origins step ``stride_hours``
-    apart, ending on the data tail, so ``historical_folds`` blocks land in the actuals
-    and the last runs past them.
+    Half-open geometry: a block is ``[forecast_start, forecast_start + horizon)``. The
+    live fold's ``forecast_start`` is the first timestamp past the data tail (hourly
+    grid), so its block is entirely future (skipped by evaluate); the earlier
+    ``historical_folds`` blocks land fully in the actuals, the latest ending exactly on
+    the tail. ``forecasts_start``/``forecasts_end`` are the earliest and live starts.
     """
-    end = last_ts(periods)
-    start = end - pd.Timedelta(hours=historical_folds * stride_hours)
+    live_start = last_ts(periods) + pd.Timedelta(hours=1)  # first future stamp
+    first_start = live_start - pd.Timedelta(hours=historical_folds * stride_hours)
     return {
         "n_forecasts": historical_folds + 1,
-        "forecasts_start": start,
-        "forecasts_end": end,
+        "forecasts_start": first_start,
+        "forecasts_end": live_start,
     }

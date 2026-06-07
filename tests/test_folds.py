@@ -19,10 +19,9 @@ def _config(
     horizon: int = 24,
     stride_h: int = 24,
 ) -> Config:
-    """``historical_folds`` historical origins plus the live origin at ``idx[-1]``.
+    """``historical_folds`` forecast starts plus the live one at ``idx[-1]``.
 
-    Mirrors the old index-anchored geometry: origins step ``stride_h`` apart, ending on
-    the data tail.
+    The forecast starts step ``stride_h`` apart, the last landing on the data tail.
     """
     end: pd.Timestamp = idx[-1]
     start = end - pd.Timedelta(hours=historical_folds * stride_h)
@@ -40,22 +39,22 @@ def test_origins_step_by_stride_earliest_first() -> None:
     idx = _index(24 * 10)
     folds = build_folds(idx, _config(idx, 3))
     last_ts = idx[-1]
-    assert [f.origin for f in folds] == [
+    assert [f.forecast_start for f in folds] == [
         last_ts - pd.Timedelta(hours=72),
         last_ts - pd.Timedelta(hours=48),
         last_ts - pd.Timedelta(hours=24),
         last_ts,
     ]
-    assert [f.origin for f in folds] == sorted(f.origin for f in folds)
+    assert [f.forecast_start for f in folds] == sorted(f.forecast_start for f in folds)
 
 
 def test_forecast_block_anchored_on_origin() -> None:
     idx = _index(24 * 10)
     folds = build_folds(idx, _config(idx, 3))
     for f in folds:
-        assert f.forecast_start == f.origin + pd.Timedelta(hours=1)
-        assert f.forecast_end == f.origin + pd.Timedelta(hours=24)
-    # Every fold but the last ends on an actual; only the latest runs past the tail.
+        # Half-open block: forecast_start is the origin itself; end is horizon past it.
+        assert f.forecast_end == f.forecast_start + pd.Timedelta(hours=24)
+    # Every fold but the last ends on or before the tail; only the latest runs past it.
     for f in folds[:-1]:
         assert f.forecast_end <= idx[-1]
 
@@ -65,8 +64,7 @@ def test_latest_origin_is_forecasts_end() -> None:
     folds = build_folds(idx, _config(idx, 3))
     latest = folds[-1]
     assert len(folds) == 4  # historical_folds + 1
-    assert latest.origin == idx[-1]
-    assert latest.forecast_start == idx[-1] + pd.Timedelta(hours=1)
+    assert latest.forecast_start == idx[-1]
     assert latest.forecast_end == idx[-1] + pd.Timedelta(hours=24)
 
 
@@ -76,16 +74,16 @@ def test_single_fold_yields_only_its_origin() -> None:
         idx, _config(idx, 0)
     )  # n_forecasts=1, forecasts_start == forecasts_end
     assert len(folds) == 1
-    assert folds[0].origin == idx[-1]
+    assert folds[0].forecast_start == idx[-1]
 
 
-def test_forecast_start_uses_resolution_step() -> None:
-    # A 15-min grid: the forecast starts one resolution step past the origin, not +1h.
+def test_single_fold_on_subhourly_grid() -> None:
+    # A 15-min grid still builds: forecast_start is the origin, end is +horizon.
     idx = pd.date_range("2024-01-01", periods=4 * 24 * 8, freq="15min", tz="UTC")
     cfg = _config(idx, 0).model_copy(update={"resolution": "15min"})
     fold = build_folds(idx, cfg)[0]
-    assert fold.forecast_start == fold.origin + pd.Timedelta(minutes=15)
-    assert fold.forecast_end == fold.origin + pd.Timedelta(hours=24)
+    assert fold.forecast_start == idx[-1]
+    assert fold.forecast_end == idx[-1] + pd.Timedelta(hours=24)
 
 
 def test_fold_ids_are_unique_and_deterministic() -> None:

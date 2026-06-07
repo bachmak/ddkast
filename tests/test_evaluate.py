@@ -24,32 +24,35 @@ _FULL = pd.date_range("2024-01-01", periods=300, freq="1h", tz="UTC")
 _TARGET = pd.Series(np.arange(1, 301, dtype=float), index=_FULL)  # strictly positive
 
 
+_STEP = pd.Timedelta(hours=1)
+
+
 def _fold_at(window: pd.DatetimeIndex) -> Fold:
+    # Half-open block: forecast_end is one step past the window's last realized stamp.
     return Fold(
         fold_id="f",
-        origin=window[0] - pd.Timedelta(hours=1),
         forecast_start=window[0],
-        forecast_end=window[-1],
+        forecast_end=window[-1] + _STEP,
     )
 
 
 def test_fold_is_scorable_true_when_block_realized() -> None:
     window = _FULL[200:204]
-    assert _fold_is_scorable(_fold_at(window), _TARGET.index[-1]) is True
+    assert _fold_is_scorable(_fold_at(window), _TARGET.index[-1] + _STEP) is True
 
 
 def test_fold_is_scorable_false_when_block_future() -> None:
     window = pd.date_range(
         "2024-06-01", periods=4, freq="1h", tz="UTC"
     )  # entirely past the actuals → not yet scorable
-    assert _fold_is_scorable(_fold_at(window), _TARGET.index[-1]) is False
+    assert _fold_is_scorable(_fold_at(window), _TARGET.index[-1] + _STEP) is False
 
 
 def test_fold_is_scorable_raises_on_straddle() -> None:
     window = _FULL[200:204]
     last_actual = window[2]  # block starts before, ends after the last actual
-    with pytest.raises(ValueError, match="straddles the last actual"):
-        _fold_is_scorable(_fold_at(window), last_actual)
+    with pytest.raises(ValueError, match="straddles the actual end"):
+        _fold_is_scorable(_fold_at(window), last_actual + _STEP)
 
 
 def test_align_fold_happy_path() -> None:
