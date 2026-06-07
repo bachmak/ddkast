@@ -73,6 +73,30 @@ jobs:
           sys.exit(0 if ts >= need else f'stale: last actual {ts} < {need}')
           "
 
+      - name: Pin forecast origin to last actual (single operational fold)
+        # config.py's defaults span a year of rolling origins — right for `evaluate`,
+        # wrong here: the daily submission needs exactly ONE fold whose block covers
+        # tomorrow. This is deployment context, so it lives in the action (env), not
+        # config.toml. The fold's origin must equal the last training timestamp: the
+        # recursive forecaster continues from there, so forecast_start = origin + 1h.
+        # Pinning the origin to the freshest actual makes forecast_start land at most
+        # one hour past it, and HORIZON=48 carries the block past tomorrow 23:00 — so
+        # the single fold covers the whole submission day. n_forecasts=1 ⇒ one fold;
+        # train fits one model on all data ≤ origin.
+        run: |
+          ORIGIN=$(uv run python -c "
+          from ddkast.config import load
+          from ddkast.data.store import ParquetStore
+          c = load()
+          ts = ParquetStore(c.processed_dir).read(c.processed_load).index.max()
+          print(ts.tz_convert('UTC').strftime('%Y-%m-%dT%H:%M:%SZ'))
+          ")
+          {
+            echo "N_FORECASTS=1"
+            echo "FORECASTS_START=$ORIGIN"
+            echo "FORECASTS_END=$ORIGIN"
+          } >> "$GITHUB_ENV"
+
       - name: Train
         run: uv run ddkast train
 
