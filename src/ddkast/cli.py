@@ -21,9 +21,19 @@ _ConfigOpt = Annotated[Path, typer.Option("--config", "-c", help="Path to config
 
 
 @app.command()
-def download(config: _ConfigOpt = Path("config.toml")) -> None:
+def download(
+    config: _ConfigOpt = Path("config.toml"),
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            "-f",
+            help="Refetch even if a cached download matches the config.",
+        ),
+    ] = False,
+) -> None:
     """Fetch raw load data from ENTSO-E."""
-    _download.run(load(config))
+    _download.run(load(config), force=force)
 
 
 @app.command()
