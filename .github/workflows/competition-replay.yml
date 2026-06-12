@@ -1,0 +1,54 @@
+name: Competition replay
+
+# Re-runs the leaderboard's scoring pipeline over our submitted forecasts and
+# verifies, day by day and in the live aggregate, that we reproduce the official
+# competition metrics bit-for-bit. Green run = our local replica of the
+# competition setup (ground truth, LOCF, metric formulas, restart window) is
+# exact and can be trusted for model-improvement experiments.
+
+on:
+  schedule:
+    # 12:37 UTC daily — after the upstream scoring run (09:23 UTC) and its
+    # Pages deploy, so the repo state and the published page agree.
+    - cron: "37 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    env:
+      TEAM_ID: ${{ vars.TEAM_ID }}
+      LEADERBOARD_UPSTREAM: bartzbeielstein/challenge-leaderboard
+      LEADERBOARD_PAGES: https://bartzbeielstein.github.io/challenge-leaderboard
+    steps:
+      - name: Checkout pipeline repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - run: uv sync
+
+      - name: Check out leaderboard (upstream, read-only)
+        # Public repo; carries the submissions, the committed ground truth
+        # (data/actual_load.parquet) and the official per-day scores
+        # (data/scores.parquet) — no ENTSO-E key needed for the replay.
+        run: |
+          git clone --depth=1 \
+            "https://github.com/${LEADERBOARD_UPSTREAM}.git" challenge-leaderboard
+
+      - name: Fetch published leaderboard aggregate
+        run: |
+          curl -fsSL "${LEADERBOARD_PAGES}/data/scores.json" \
+            -o published_scores.json
+
+      - name: Replay competition scoring
+        run: |
+          uv run ddkast replay-competition \
+            --leaderboard-dir challenge-leaderboard \
+            --team-id "$TEAM_ID" \
+            --scores-json published_scores.json \
+            --summary-out "$GITHUB_STEP_SUMMARY"

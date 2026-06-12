@@ -11,6 +11,7 @@ import ddkast.pipeline.evaluate as _evaluate
 import ddkast.pipeline.format_submission as _format_submission
 import ddkast.pipeline.merge as _merge
 import ddkast.pipeline.predict as _predict
+import ddkast.pipeline.replay_competition as _replay_competition
 import ddkast.pipeline.train as _train
 import ddkast.pipeline.visualise as _visualise
 from ddkast.config import load
@@ -73,6 +74,48 @@ def format_submission(
 ) -> None:
     """Write tomorrow's hourly forecast to the leaderboard submission schema."""
     _format_submission.run(load(config), out_dir)
+
+
+@app.command(name="replay-competition")
+def replay_competition(
+    leaderboard_dir: Annotated[
+        Path,
+        typer.Option(
+            "--leaderboard-dir",
+            help="Checkout of the challenge-leaderboard repo (submissions + data).",
+        ),
+    ],
+    team_id: Annotated[
+        str, typer.Option("--team-id", help="Our team id in the leaderboard repo.")
+    ],
+    restart_date: Annotated[
+        str,
+        typer.Option(
+            "--restart-date",
+            help="First live-phase target day (the leaderboard's RESTART_DATE).",
+        ),
+    ] = "2026-06-10",
+    scores_json: Annotated[
+        Path | None,
+        typer.Option(
+            "--scores-json",
+            help="Published data/scores.json to verify the live aggregate against.",
+        ),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--summary-out",
+            help="File to append the markdown report to (e.g. $GITHUB_STEP_SUMMARY).",
+        ),
+    ] = None,
+) -> None:
+    """Replay the leaderboard scoring over our submissions and verify the metrics."""
+    ok = _replay_competition.run(
+        leaderboard_dir, team_id, restart_date, scores_json, summary_out
+    )
+    if not ok:
+        raise typer.Exit(1)
 
 
 @app.command()
