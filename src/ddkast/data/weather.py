@@ -6,7 +6,8 @@ from math import ceil
 import pandas as pd
 from spotforecast2_safe.weather import WeatherClient
 
-WEATHER_COLS: list[str] = [
+# Full weather schema Open-Meteo serves and the model can consume as exog.
+_ALL_WEATHER_COLS: list[str] = [
     "temperature_2m",
     "relative_humidity_2m",
     "precipitation",
@@ -22,6 +23,29 @@ WEATHER_COLS: list[str] = [
     "wind_speed_10m",
     "wind_direction_10m",
     "wind_gusts_10m",
+]
+
+# TEMPORARY (since 2026-07-01): drop the three 10m-wind variables from the model.
+# Open-Meteo's archive began serving scattered NaN across the whole 2022–2025
+# history for exactly these columns — a stable upstream outage reproducible in
+# every model (best_match / era5 / era5_seamless / ecmwf_ifs), not a change on
+# our side (the daily run was green on 2026-06-30 with identical code). Our CR-3
+# completeness check (_assert_contiguous_and_complete) correctly refuses to build
+# a forecast on NaN weather, which is what fails the daily run. Excluding the
+# affected columns lets the pipeline run on the still-complete remaining
+# variables until Open-Meteo backfills wind.
+#
+# TO RE-ENABLE once upstream recovers: set this back to an empty list. Everything
+# downstream (fixtures, tests, exog matrix) derives from WEATHER_COLS, so no other
+# change is needed.
+_WIND_COLS_TEMPORARILY_EXCLUDED: list[str] = [
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+]
+
+WEATHER_COLS: list[str] = [
+    col for col in _ALL_WEATHER_COLS if col not in _WIND_COLS_TEMPORARILY_EXCLUDED
 ]
 
 
