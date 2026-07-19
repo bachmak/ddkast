@@ -36,3 +36,7 @@ notebooks/.ipynb_checkpoints/
 # claude worktrees
 .claude/worktrees/
 config.local.toml
+
+# personal project notes (not for the repo)
+PROJECT_OVERVIEW.md
+PROJECT_EXPLAINED_SIMPLE.md
