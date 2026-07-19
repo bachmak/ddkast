@@ -6,6 +6,7 @@ from math import ceil
 import pandas as pd
 from spotforecast2_safe.weather import WeatherClient
 
+# Full weather schema Open-Meteo serves and the model can consume as exog.
 WEATHER_COLS: list[str] = [
     "temperature_2m",
     "relative_humidity_2m",
