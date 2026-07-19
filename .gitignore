@@ -9,6 +9,7 @@ models/*
 plots/
 tests/fixtures/smoke/
 submissions/
+audit/
 
 # python
 .venv/
