@@ -1,62 +1,27 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ddkast — 24h Load Forecasting for Germany</title>
-  <style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ddkast — 24h Load Forecasting for Germany</title>
+<style>
+  :root {
+    --bg: #F5F7FA;
+    --surface: #FFFFFF;
+    --ink: #1A222E;
+    --ink-2: #4A5768;
+    --ink-3: #7C8797;
+    --line: #DDE3EB;
+    --accent: #A86F06;
+    --accent-ink: #8A5B05;
+    --bench: #4670AE;
+    --good: #2E7D4F;
+    --bad: #B3423A;
+    --chip: #EDF1F6;
+    --shadow: 0 1px 3px rgba(26,34,46,.08);
+  }
+  @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #F5F7FA;
-      --surface: #FFFFFF;
-      --ink: #1A222E;
-      --ink-2: #4A5768;
-      --ink-3: #7C8797;
-      --line: #DDE3EB;
-      --accent: #A86F06;
-      --accent-ink: #8A5B05;
-      --bench: #4670AE;
-      --good: #2E7D4F;
-      --bad: #B3423A;
-      --chip: #EDF1F6;
-      --shadow: 0 1px 3px rgba(26, 34, 46, .08);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #10151D;
-        --surface: #171E29;
-        --ink: #E6EAF0;
-        --ink-2: #A8B2C0;
-        --ink-3: #6E7A8A;
-        --line: #28313F;
-        --accent: #BC841A;
-        --accent-ink: #E3B458;
-        --bench: #5B84C9;
-        --good: #5CB884;
-        --bad: #D9776F;
-        --chip: #1E2734;
-        --shadow: 0 1px 3px rgba(0, 0, 0, .4);
-      }
-    }
-
-    :root[data-theme="light"] {
-      --bg: #F5F7FA;
-      --surface: #FFFFFF;
-      --ink: #1A222E;
-      --ink-2: #4A5768;
-      --ink-3: #7C8797;
-      --line: #DDE3EB;
-      --accent: #A86F06;
-      --accent-ink: #8A5B05;
-      --bench: #4670AE;
-      --good: #2E7D4F;
-      --bad: #B3423A;
-      --chip: #EDF1F6;
-      --shadow: 0 1px 3px rgba(26, 34, 46, .08);
-    }
-
-    :root[data-theme="dark"] {
       --bg: #10151D;
       --surface: #171E29;
       --ink: #E6EAF0;
@@ -69,1192 +34,489 @@
       --good: #5CB884;
       --bad: #D9776F;
       --chip: #1E2734;
-      --shadow: 0 1px 3px rgba(0, 0, 0, .4);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      height: 100%;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--ink);
-      font: 16px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
-      overflow: hidden;
-    }
-
-    .mono {
-      font-family: "Cascadia Code", Consolas, "SF Mono", monospace;
-    }
-
-    #deck {
-      height: 100vh;
-      position: relative;
-    }
-
-    .slide {
-      position: absolute;
-      inset: 0;
-      padding: clamp(24px, 5vh, 56px) clamp(24px, 7vw, 96px);
-      display: none;
-      flex-direction: column;
-      overflow-y: auto;
-    }
-
-    .slide.active {
-      display: flex;
-    }
-
-    @media (prefers-reduced-motion: no-preference) {
-      .slide.active {
-        animation: slidein .35s ease;
-      }
-
-      @keyframes slidein {
-        from {
-          opacity: 0;
-          transform: translateX(14px);
-        }
-
-        to {
-          opacity: 1;
-          transform: none;
-        }
-      }
-    }
-
-    .eyebrow {
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-size: 12px;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-      color: var(--accent-ink);
-      margin: 0 0 10px;
-    }
-
-    h1 {
-      font-size: clamp(30px, 4.5vw, 52px);
-      font-weight: 650;
-      letter-spacing: -.02em;
-      line-height: 1.12;
-      margin: 0 0 8px;
-      text-wrap: balance;
-    }
-
-    h2 {
-      font-size: clamp(24px, 3.2vw, 36px);
-      font-weight: 650;
-      letter-spacing: -.015em;
-      line-height: 1.15;
-      margin: 0 0 6px;
-      text-wrap: balance;
-    }
-
-    .sub {
-      color: var(--ink-2);
-      font-size: clamp(15px, 1.4vw, 18px);
-      max-width: 62ch;
-      margin: 0 0 22px;
-    }
-
-    .body-wrap {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 0;
-    }
-
-    .cols {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: clamp(18px, 3vw, 44px);
-      align-items: start;
-    }
-
-    @media (max-width: 820px) {
-      .cols {
-        grid-template-columns: 1fr;
-      }
-
-      body {
-        overflow: auto;
-      }
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 18px 20px;
-      box-shadow: var(--shadow);
-    }
-
-    .card h3 {
-      margin: 0 0 6px;
-      font-size: 15px;
-      font-weight: 650;
-    }
-
-    .card p {
-      margin: 0;
-      color: var(--ink-2);
-      font-size: 14px;
-    }
-
-    .stack {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    ul.tight {
-      margin: 0;
-      padding-left: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      color: var(--ink-2);
-    }
-
-    ul.tight li strong,
-    ul.tight li b {
-      color: var(--ink);
-      font-weight: 620;
-    }
-
-    ul.tight li::marker {
-      color: var(--accent);
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      font-size: 14px;
-    }
-
-    th {
-      text-align: left;
-      font-size: 11.5px;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-      font-weight: 600;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    td {
-      padding: 9px 12px;
-      border-bottom: 1px solid var(--line);
-      color: var(--ink-2);
-      vertical-align: top;
-    }
-
-    td:first-child {
-      color: var(--ink);
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .num {
-      font-variant-numeric: tabular-nums;
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-size: 13px;
-    }
-
-    .tbl-scroll {
-      overflow-x: auto;
-    }
-
-    .kpis {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-top: 20px;
-    }
-
-    .kpi {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 14px 20px;
-      box-shadow: var(--shadow);
-      min-width: 150px;
-    }
-
-    .kpi .v {
-      font-size: 26px;
-      font-weight: 680;
-      letter-spacing: -.02em;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .kpi .v.acc {
-      color: var(--accent-ink);
-    }
-
-    .kpi .l {
-      font-size: 12px;
-      color: var(--ink-3);
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      margin-top: 2px;
-    }
-
-    /* pipeline diagram */
-    .pipe {
-      display: flex;
-      align-items: stretch;
-      gap: 0;
-      flex-wrap: wrap;
-      row-gap: 14px;
-    }
-
-    .stage {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px 14px;
-      box-shadow: var(--shadow);
-      min-width: 118px;
-    }
-
-    .stage .n {
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .stage .d {
-      font-size: 11.5px;
-      color: var(--ink-3);
-      margin-top: 3px;
-      line-height: 1.35;
-    }
-
-    .arrow {
-      align-self: center;
-      color: var(--ink-3);
-      padding: 0 8px;
-      font-size: 18px;
-    }
-
-    /* chart */
-    .chart {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-top: 8px;
-    }
-
-    .crow {
-      display: grid;
-      grid-template-columns: 150px 1fr;
-      align-items: center;
-      gap: 12px;
-      padding: 6px 0;
-    }
-
-    .crow .lbl {
-      font-size: 13.5px;
-      color: var(--ink);
-      text-align: right;
-      line-height: 1.25;
-    }
-
-    .crow .lbl small {
-      display: block;
-      color: var(--ink-3);
-      font-size: 11.5px;
-    }
-
-    .track {
-      position: relative;
-      height: 30px;
-    }
-
-    .bar {
-      position: absolute;
-      left: 0;
-      top: 3px;
-      bottom: 3px;
-      border-radius: 0 4px 4px 0;
-      background: var(--bench);
-      min-width: 3px;
-    }
-
-    .bar.model {
-      background: var(--accent);
-    }
-
-    .bar-val {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-size: 12.5px;
-      color: var(--ink);
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .baseline {
-      border-left: 2px solid var(--line);
-    }
-
-    .crow:hover .bar {
-      filter: brightness(1.12);
-    }
-
-    .axis-note {
-      font-size: 11.5px;
-      color: var(--ink-3);
-      margin-top: 6px;
-    }
-
-    .pill {
-      display: inline-block;
-      background: var(--chip);
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 2px 11px;
-      font-size: 12px;
-      color: var(--ink-2);
-      font-family: "Cascadia Code", Consolas, monospace;
-    }
-
-    .ok {
-      color: var(--good);
-      font-weight: 700;
-    }
-
-    .no {
-      color: var(--bad);
-      font-weight: 700;
-    }
-
-    code,
-    .code {
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-size: .92em;
-      background: var(--chip);
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 1px 5px;
-    }
-
-    /* results / production extras */
-    .tbl-cap {
-      font-size: 12.5px;
-      font-weight: 650;
-      letter-spacing: .02em;
-      color: var(--ink);
-      margin: 0 0 7px;
-    }
-
-    .tbl-cap small {
-      color: var(--ink-3);
-      font-weight: 500;
-      letter-spacing: 0;
-    }
-
-    tr.model-row td,
-    tr.model-row td:first-child {
-      color: var(--good);
-      font-weight: 650;
-    }
-
-    .reconcile td:first-child {
-      white-space: nowrap;
-    }
-
-    /* two mini bar charts side by side */
-    .dual {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: clamp(14px, 2.6vw, 30px);
-    }
-
-    @media (max-width: 820px) {
-      .dual {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .dual .card {
-      padding: 14px 16px 12px;
-    }
-
-    .dual .chart {
-      margin-top: 6px;
-    }
-
-    .dual .crow {
-      grid-template-columns: 92px 1fr;
-      gap: 8px;
-      padding: 5px 0;
-    }
-
-    .dual .lbl {
-      font-size: 12px;
-    }
-
-    .dual .lbl small {
-      font-size: 10.5px;
-    }
-
-    .dual .track {
-      height: 25px;
-    }
-
-    .dual .bar-val {
-      font-size: 11px;
-    }
-
-    .chart-legend {
-      display: flex;
-      gap: 16px;
-      font-size: 11px;
-      color: var(--ink-3);
-      margin: 4px 0 14px;
-    }
-
-    .chart-legend span {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .swatch {
-      width: 11px;
-      height: 11px;
-      border-radius: 2px;
-      background: var(--bench);
-    }
-
-    .swatch.model {
-      background: var(--accent);
-    }
-
-    /* fitted submission screenshot */
-    .shot-card {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .shot-frame {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 0;
-      margin-top: 4px;
-      overflow: hidden;
-    }
-
-    .shot {
-      max-width: 100%;
-      max-height: 46vh;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      display: block;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-    }
-
-    .shot-cap {
-      font-size: 11.5px;
-      color: var(--ink-3);
-      margin: 10px 0 0;
-    }
-
-    .shot-fallback {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      width: 100%;
-      min-height: 44vh;
-      padding: 18px;
-      border: 1px dashed var(--line);
-      border-radius: 8px;
-      background: var(--chip);
-      color: var(--ink-3);
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    /* nav */
-    #nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 10px clamp(24px, 7vw, 96px);
-      pointer-events: none;
-    }
-
-    #nav button {
-      pointer-events: auto;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      color: var(--ink-2);
-      border-radius: 8px;
-      width: 38px;
-      height: 32px;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    #nav button:hover {
-      color: var(--ink);
-      border-color: var(--ink-3);
-    }
-
-    #nav button:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    #counter {
-      font-family: "Cascadia Code", Consolas, monospace;
-      font-size: 12px;
-      color: var(--ink-3);
-    }
-
-    #progress {
-      flex: 1;
-      height: 2px;
-      background: var(--line);
-      border-radius: 2px;
-    }
-
-    #progress i {
-      display: block;
-      height: 100%;
-      background: var(--accent);
-      border-radius: 2px;
-      transition: width .25s;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      #progress i {
-        transition: none;
-      }
-    }
-
-    .hint {
-      font-size: 11.5px;
-      color: var(--ink-3);
-    }
-
-    @media (max-width: 820px) {
-      .hint {
-        display: none;
-      }
-    }
-  </style>
+      --shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7FA; --surface: #FFFFFF; --ink: #1A222E; --ink-2: #4A5768;
+    --ink-3: #7C8797; --line: #DDE3EB; --accent: #A86F06; --accent-ink: #8A5B05;
+    --bench: #4670AE; --good: #2E7D4F; --bad: #B3423A; --chip: #EDF1F6;
+    --shadow: 0 1px 3px rgba(26,34,46,.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151D; --surface: #171E29; --ink: #E6EAF0; --ink-2: #A8B2C0;
+    --ink-3: #6E7A8A; --line: #28313F; --accent: #BC841A; --accent-ink: #E3B458;
+    --bench: #5B84C9; --good: #5CB884; --bad: #D9776F; --chip: #1E2734;
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+  .mono { font-family: "Cascadia Code", Consolas, "SF Mono", monospace; }
+
+  #deck { height: 100vh; position: relative; }
+  .slide {
+    position: absolute; inset: 0; padding: clamp(24px, 5vh, 56px) clamp(24px, 7vw, 96px);
+    display: none; flex-direction: column; overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+  @media (prefers-reduced-motion: no-preference) {
+    .slide.active { animation: slidein .35s ease; }
+    @keyframes slidein { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+  }
+
+  .eyebrow {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 12px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.5vw, 52px); font-weight: 650; letter-spacing: -.02em;
+    line-height: 1.12; margin: 0 0 8px; text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(24px, 3.2vw, 36px); font-weight: 650; letter-spacing: -.015em;
+    line-height: 1.15; margin: 0 0 6px; text-wrap: balance;
+  }
+  .sub { color: var(--ink-2); font-size: clamp(15px, 1.4vw, 18px); max-width: 62ch; margin: 0 0 22px; }
+  .body-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(18px, 3vw, 44px); align-items: start; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } body { overflow: auto; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 650; }
+  .card p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+
+  ul.tight { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 9px; color: var(--ink-2); }
+  ul.tight li strong, ul.tight li b { color: var(--ink); font-weight: 620; }
+  ul.tight li::marker { color: var(--accent); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase;
+       color: var(--ink-3); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--line); color: var(--ink-2); vertical-align: top; }
+  td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; }
+  .tbl-scroll { overflow-x: auto; }
+
+  .kpis { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+         padding: 14px 20px; box-shadow: var(--shadow); min-width: 150px; }
+  .kpi .v { font-size: 26px; font-weight: 680; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .kpi .v.acc { color: var(--accent-ink); }
+  .kpi .l { font-size: 12px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+
+  /* pipeline diagram */
+  .pipe { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; row-gap: 14px; }
+  .stage { background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+           padding: 10px 14px; box-shadow: var(--shadow); min-width: 118px; }
+  .stage .n { font-family: "Cascadia Code", Consolas, monospace; font-weight: 600; font-size: 14px; }
+  .stage .d { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.35; }
+  .arrow { align-self: center; color: var(--ink-3); padding: 0 8px; font-size: 18px; }
+
+  /* chart */
+  .chart { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+  .crow { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 12px; padding: 6px 0; }
+  .crow .lbl { font-size: 13.5px; color: var(--ink); text-align: right; line-height: 1.25; }
+  .crow .lbl small { display: block; color: var(--ink-3); font-size: 11.5px; }
+  .track { position: relative; height: 30px; }
+  .bar { position: absolute; left: 0; top: 3px; bottom: 3px; border-radius: 0 4px 4px 0;
+         background: var(--bench); min-width: 3px; }
+  .bar.model { background: var(--accent); }
+  .bar-val { position: absolute; top: 50%; transform: translateY(-50%); font-family: "Cascadia Code", Consolas, monospace;
+             font-size: 12.5px; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .baseline { border-left: 2px solid var(--line); }
+  .crow:hover .bar { filter: brightness(1.12); }
+  .axis-note { font-size: 11.5px; color: var(--ink-3); margin-top: 6px; }
+
+  .pill { display: inline-block; background: var(--chip); border: 1px solid var(--line); border-radius: 999px;
+          padding: 2px 11px; font-size: 12px; color: var(--ink-2); font-family: "Cascadia Code", Consolas, monospace; }
+  .ok { color: var(--good); font-weight: 700; }
+  .no { color: var(--bad); font-weight: 700; }
+
+  code, .code { font-family: "Cascadia Code", Consolas, monospace; font-size: .92em;
+    background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+
+  /* nav */
+  #nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; align-items: center;
+         gap: 14px; padding: 10px clamp(24px, 7vw, 96px); pointer-events: none; }
+  #nav button { pointer-events: auto; background: var(--surface); border: 1px solid var(--line);
+    color: var(--ink-2); border-radius: 8px; width: 38px; height: 32px; font-size: 15px; cursor: pointer; }
+  #nav button:hover { color: var(--ink); border-color: var(--ink-3); }
+  #nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #counter { font-family: "Cascadia Code", Consolas, monospace; font-size: 12px; color: var(--ink-3); }
+  #progress { flex: 1; height: 2px; background: var(--line); border-radius: 2px; }
+  #progress i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .25s; }
+  @media (prefers-reduced-motion: reduce) { #progress i { transition: none; } }
+  .hint { font-size: 11.5px; color: var(--ink-3); }
+  @media (max-width: 820px) { .hint { display: none; } }
+</style>
 </head>
-
 <body>
 
-  <div id="deck">
+<div id="deck">
 
-    <!-- 1 · Title -->
-    <section class="slide active">
-      <div class="body-wrap">
-        <p class="eyebrow">ddkast · Data-Driven Optimization · SoSe 2026 · AIT</p>
-        <h1>Forecasting Germany's electricity load, 24 hours ahead</h1>
-        <p class="sub">A deterministic, EU-AI-Act-compliant forecasting pipeline that trains, predicts,
-          and submits to a live leaderboard — every day, automatically, with no human in the loop.</p>
-        <div class="kpis">
-          <div class="kpi">
-            <div class="v acc num">1,468 MW</div>
-            <div class="l">backtest MAE · 364 folds</div>
-          </div>
-          <div class="kpi">
-            <div class="v acc num">1,757 MW</div>
-            <div class="l">leaderboard MAE · 40 days</div>
-          </div>
-          <div class="kpi">
-            <div class="v num">2,150 MW</div>
-            <div class="l">ENTSO-E, same days</div>
-          </div>
+  <!-- 1 · Title -->
+  <section class="slide active">
+    <div class="body-wrap">
+      <p class="eyebrow">ddkast · Data-Driven Optimization · SoSe 2026 · AIT</p>
+      <h1>Forecasting Germany's electricity load, 24 hours ahead</h1>
+      <p class="sub">A deterministic, EU-AI-Act-compliant forecasting pipeline that trains, predicts,
+        and submits to a live leaderboard — every day, automatically, with no human in the loop.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="v num">37,944</div><div class="l">hourly observations</div></div>
+        <div class="kpi"><div class="v num">4.3 yrs</div><div class="l">training history</div></div>
+        <div class="kpi"><div class="v num">44</div><div class="l">commits · 45 PRs</div></div>
+        <div class="kpi"><div class="v acc num">17:00 UTC</div><div class="l">daily live submission</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Problem -->
+  <section class="slide">
+    <p class="eyebrow">01 · The problem</p>
+    <h2>Predict tomorrow's hourly load for the DE_LU grid zone</h2>
+    <p class="sub">Every day before the deadline, submit 24 hourly values — tomorrow 00:00 to 23:00 UTC,
+      in megawatts — for the Germany/Luxembourg bidding zone.</p>
+    <div class="body-wrap"><div class="cols">
+      <ul class="tight">
+        <li><strong>Why it matters:</strong> grid operators schedule generation and reserves against
+          exactly this forecast. Load runs ~40–80 GW; a 1% error is hundreds of MW of mis-scheduled capacity.</li>
+        <li><strong>The competition:</strong> a live leaderboard scores every team's daily CSV against
+          the actuals once they materialise. You can't overfit a hidden test set — the test set is tomorrow.</li>
+        <li><strong>The long game:</strong> the pipeline is written to be domain-portable — the follow-up
+          target is water-consumption forecasting for pump scheduling, which is the identical problem shape.</li>
+      </ul>
+      <div class="stack">
+        <div class="card"><h3>Input signals</h3>
+          <p>ENTSO-E actual load · ENTSO-E's own published day-ahead forecast (DAF) ·
+             Open-Meteo weather (15 variables) · calendar structure (hour, weekday, month, holidays)</p></div>
+        <div class="card"><h3>Output</h3>
+          <p>24 strictly positive MW values, one per hour, rounded to 2 decimals,
+             delivered as a pull request to the leaderboard repository.</p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- 3 · Rulebook -->
+  <section class="slide">
+    <p class="eyebrow">02 · The constraint that shaped everything</p>
+    <h2>Treated as a high-risk AI system under the EU AI Act</h2>
+    <p class="sub">Load forecasting for critical infrastructure falls under Annex III No. 2. Articles 9–15
+      apply — and were operationalised as four non-negotiable code rules enforced on every module.</p>
+    <div class="body-wrap">
+      <div class="tbl-scroll"><table>
+        <tr><th>Rule</th><th>Name</th><th>What it means in the code</th><th>AI Act</th></tr>
+        <tr><td class="mono">CR-1</td><td>No dead code</td><td>Every function and branch is reached by a test or docstring example.</td><td class="num">Art. 9, 13</td></tr>
+        <tr><td class="mono">CR-2</td><td>Determinism</td><td>Same input → bit-identical output. Fixed seeds, fixed iteration order, pinned data windows, integer-nanosecond fold strides.</td><td class="num">Art. 12, 15</td></tr>
+        <tr><td class="mono">CR-3</td><td>Fail-safe processing</td><td>Invalid input (NaN, wrong dtype, gaps) raises a specific exception — never silently imputed.</td><td class="num">Art. 10, 15</td></tr>
+        <tr><td class="mono">CR-4</td><td>Minimal attack surface</td><td>One vetted library (<span class="code">spotforecast2-safe</span>) on the production path; SHA-pinned CI actions; least-privilege tokens.</td><td class="num">Art. 15</td></tr>
+      </table></div>
+      <p class="axis-note" style="margin-top:14px">Plus: all storage behind a <span class="code">DataStore</span> protocol · every run leaves audit
+        artifacts · rolling-origin backtesting instead of a single split (Art. 9) · model cards for transparency (Art. 13).</p>
+    </div>
+  </section>
+
+  <!-- 4 · Data -->
+  <section class="slide">
+    <p class="eyebrow">03 · The data</p>
+    <h2>Three sources, one canonical hourly-UTC grid</h2>
+    <div class="body-wrap"><div class="cols">
+      <div class="stack">
+        <div class="card"><h3>ENTSO-E — actual load <span class="pill">load_mw</span></h3>
+          <p>The target. 15-minute Europe/Berlin readings, Jan 2022 → Apr 2026, resampled to hourly UTC. 37,944 clean rows.</p></div>
+        <div class="card"><h3>ENTSO-E — day-ahead forecast <span class="pill">forecast_mw</span></h3>
+          <p>The operator's own published forecast. Never a model input — it is the benchmark to beat.</p></div>
+        <div class="card"><h3>Open-Meteo — weather <span class="pill">15 columns</span></h3>
+          <p>Temperature, humidity, precipitation, cloud cover, wind, pressure… for a Frankfurt reference point.
+             Archive for history, forecast endpoint for the future hours the model must predict into. No API key.</p></div>
+      </div>
+      <ul class="tight">
+        <li><strong>Cleaning is conservative and loud:</strong> IQR outlier bounds (multiplier 3.0) —
+          chosen over the library's IsolationForest because IQR is deterministic (CR-2).</li>
+        <li><strong>Gaps ≤ 3 h</strong> are linearly interpolated; anything longer <em>raises</em> —
+          the surrounding window is rejected rather than fabricated (CR-3).</li>
+        <li><strong>"Load is the spine":</strong> cleaned load defines the timestamp grid.
+          A gap in load is fatal; DAF and weather gaps are soft-dropped with a warning.</li>
+        <li><strong>Asymmetric trim:</strong> DAF is reindexed onto the load grid (it exists to be compared
+          with actuals) — but weather keeps its <em>forecast tail beyond the last actual</em>, because
+          predicting tomorrow needs tomorrow's weather.</li>
+      </ul>
+    </div></div>
+  </section>
+
+  <!-- 5 · Architecture -->
+  <section class="slide">
+    <p class="eyebrow">04 · Architecture</p>
+    <h2>Seven stages that only talk through Parquet</h2>
+    <p class="sub">Each stage is independently runnable, testable, and auditable. No stage calls another in
+      memory — state flows through files, via one storage abstraction.</p>
+    <div class="body-wrap">
+      <div class="pipe">
+        <div class="stage"><div class="n">download</div><div class="d">ENTSO-E + Open-Meteo → raw parquet (cached on a config fingerprint)</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">merge</div><div class="d">clean spine, align DAF + weather to hourly UTC</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">train</div><div class="d">one LightGBM model per rolling-origin fold</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">predict</div><div class="d">one forecast block per fold</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">evaluate</div><div class="d">score realized folds vs 2 benchmarks</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">visualise</div><div class="d">Plotly / Matplotlib backends</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">format-submission</div><div class="d">pick the covering fold → leaderboard CSV</div></div>
+      </div>
+      <div class="cols" style="margin-top:26px">
+        <div class="card"><h3>Seam 1 — <span class="code">DataStore</span></h3>
+          <p>Two methods: <span class="code">read(name)</span> / <span class="code">write(name, df)</span>.
+             All pipeline I/O funnels through it — storage is swappable and every access is one auditable chokepoint.</p></div>
+        <div class="card"><h3>Seam 2 — <span class="code">DataSource</span></h3>
+          <p>Where <span class="code">download</span> gets raw frames: the live APIs in production, or seeded
+             offline fixtures in CI. The stage can't tell the difference — so the whole pipeline runs
+             end-to-end in CI with no network and no key.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · Model -->
+  <section class="slide">
+    <p class="eyebrow">05 · The model</p>
+    <h2>Gradient-boosted trees, applied recursively</h2>
+    <div class="body-wrap"><div class="cols">
+      <ul class="tight">
+        <li><strong>Estimator:</strong> <span class="code">LGBMRegressor</span> inside
+          <span class="code">ForecasterRecursive</span> from <span class="code">spotforecast2-safe</span> —
+          predicts hour t+1, feeds it back as input for t+2, … out to the horizon.</li>
+        <li><strong>Autoregression:</strong> <span class="code">lags=168</span> — the previous full week
+          of hourly load as features. Load is dominated by daily and weekly rhythm.</li>
+        <li><strong>Determinism flags (CR-2):</strong> <span class="code">random_state=42</span>,
+          <span class="code">deterministic=True</span>, <span class="code">force_col_wise=True</span> —
+          retraining on identical data reproduces the identical model.</li>
+        <li><strong>Deliberately not done (yet):</strong> hyperparameter tuning, prediction intervals,
+          SHAP attribution — documented as open limitations in the model card, not quietly skipped.</li>
+      </ul>
+      <div class="stack">
+        <div class="card"><h3>40 exogenous features per hour</h3>
+          <p><strong>Calendar (25):</strong> smooth RBF encodings of hour (10), weekday (7), month (6) —
+             so 23:00 sits mathematically next to 00:00 — plus German holiday and weekend flags.<br><br>
+             <strong>Weather (15):</strong> the Open-Meteo columns, joined on the hourly index.
+             Any NaN in the joined matrix raises (CR-3).</p></div>
+        <div class="card"><h3>Why not the library's all-in-one model class?</h3>
+          <p><span class="code">ForecasterRecursiveModel</span> does its own data loading — it would bypass
+             the <span class="code">DataStore</span> audit seam. The project uses the lower-level
+             fit/predict pieces instead.</p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- 7 · Backtest -->
+  <section class="slide">
+    <p class="eyebrow">06 · Evaluation protocol</p>
+    <h2>365 rolling origins — never a single lucky split</h2>
+    <p class="sub">A single train/test split can flatter or damn a forecaster by chance. The protocol here
+      re-runs the whole exercise at 365 evenly spaced daily origins across the final year of data.</p>
+    <div class="body-wrap"><div class="cols">
+      <ul class="tight">
+        <li><strong>One fold = one origin.</strong> Train on <em>everything before</em> the origin
+          (expanding window), forecast the next 24 h as a half-open block
+          <span class="code">[start, end)</span>, score it against the actuals.</li>
+        <li><strong>One model per fold</strong>, persisted under
+          <span class="code">models/folds/&lt;fold_id&gt;/</span> — no leakage between folds is possible
+          by construction.</li>
+        <li><strong>Fold generation is fail-safe:</strong> unsorted index, origins off the hourly grid,
+          a span that doesn't divide evenly, or less than 168 h of history — every case raises with a
+          specific message. Strides are computed in integer nanoseconds (CR-2).</li>
+        <li><strong>Production reuses the machinery:</strong> the daily job pins
+          <span class="code">n_forecasts=1</span> at the freshest actual — the operational forecast is just
+          a one-fold backtest whose block covers tomorrow.</li>
+      </ul>
+      <div class="stack">
+        <div class="card"><h3>Scored against two benchmarks</h3>
+          <p><strong>7-day seasonal naive</strong> — tomorrow 3 pm = last Tuesday 3 pm. The honesty floor:
+             a model that can't beat it has learned nothing.<br><br>
+             <strong>ENTSO-E DAF</strong> — the official operator forecast. The professional ceiling.</p></div>
+        <div class="card"><h3>Four metrics, one primary</h3>
+          <p><strong>MAE</strong> (primary — robust, in interpretable MW) plus RMSE, MAPE, SMAPE,
+             each aggregated to mean ± std ± median across folds, with skill scores
+             <span class="code">1 − MAE_model / MAE_benchmark</span>.</p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- 8 · Results -->
+  <section class="slide">
+    <p class="eyebrow">07 · Results</p>
+    <h2>Halves the naive error; the operator benchmark still leads</h2>
+    <p class="sub">Snapshot from the scored fold in the local artifacts (24 h of 2026-04-01, trained on the
+      full 2022→2026 history). Mean absolute error, lower is better.</p>
+    <div class="body-wrap">
+      <div class="chart" role="img" aria-label="Bar chart of MAE: naive 3938 MW, ddkast model 1774 MW, ENTSO-E DAF 1313 MW">
+        <div class="crow">
+          <div class="lbl">7-day naive<small>the floor</small></div>
+          <div class="track baseline"><div class="bar" style="width:89%"></div><div class="bar-val" style="left:calc(89% + 8px)">3,938 MW</div></div>
+        </div>
+        <div class="crow">
+          <div class="lbl"><strong>ddkast model</strong><small>LightGBM recursive</small></div>
+          <div class="track baseline"><div class="bar model" style="width:40%"></div><div class="bar-val" style="left:calc(40% + 8px)">1,774 MW</div></div>
+        </div>
+        <div class="crow">
+          <div class="lbl">ENTSO-E DAF<small>the ceiling</small></div>
+          <div class="track baseline"><div class="bar" style="width:29.6%"></div><div class="bar-val" style="left:calc(29.6% + 8px)">1,313 MW</div></div>
         </div>
       </div>
-    </section>
+      <p class="axis-note">MAE, MW — 24 scored hours · full metric set below</p>
+      <div class="tbl-scroll" style="margin-top:16px"><table>
+        <tr><th>Forecaster</th><th>MAE (MW)</th><th>RMSE (MW)</th><th>MAPE</th><th>SMAPE</th><th>Beats naive?</th></tr>
+        <tr><td>7-day naive</td><td class="num">3,938</td><td class="num">4,674</td><td class="num">6.73 %</td><td class="num">6.44 %</td><td>—</td></tr>
+        <tr><td>ddkast model</td><td class="num">1,774</td><td class="num">2,420</td><td class="num">3.04 %</td><td class="num">2.96 %</td><td><span class="ok">✓</span> skill ≈ 0.55</td></tr>
+        <tr><td>ENTSO-E DAF</td><td class="num">1,313</td><td class="num">1,820</td><td class="num">2.26 %</td><td class="num">2.25 %</td><td><span class="ok">✓</span></td></tr>
+      </table></div>
+      <p class="axis-note" style="margin-top:12px">Honest caveats: one day is a snapshot, not a backtest — the protocol-grade number is the full
+        365-fold run. The DAF gap is expected: ENTSO-E forecasts with zone-wide telemetry; this model sees one weather station.</p>
+    </div>
+  </section>
 
-    <!-- 2 · Problem -->
-    <section class="slide">
-      <p class="eyebrow">01 · The problem</p>
-      <h2>Predict tomorrow's hourly load for the DE_LU grid zone</h2>
-      <p class="sub">Every day before the deadline, submit 24 hourly values — tomorrow 00:00 to 23:00 UTC,
-        in megawatts — for the Germany/Luxembourg bidding zone.</p>
-      <div class="body-wrap">
-        <div class="cols">
-          <ul class="tight">
-            <li><strong>Scoring:</strong> a live leaderboard scores every team's daily CSV against the
-              actuals once they materialise, and ranks by mean MAE. You can't overfit a hidden test set —
-              the test set is tomorrow.</li>
-            <li><strong>Two reference marks:</strong> ENTSO-E's own published day-ahead forecast is scored
-              alongside the teams, and a 7-day seasonal naive is the internal floor every model must beat.</li>
-          </ul>
-          <div class="stack">
-            <div class="card">
-              <h3>Input signals</h3>
-              <p>ENTSO-E actual load · ENTSO-E's own published day-ahead forecast (DAF) ·
-                Open-Meteo weather (15 variables) · calendar structure (hour, weekday, month, holidays)</p>
-            </div>
-            <div class="card">
-              <h3>Output</h3>
-              <p>24 strictly positive MW values, one per hour, rounded to 2 decimals,
-                delivered as a pull request to the leaderboard repository.</p>
-            </div>
-          </div>
-        </div>
+  <!-- 9 · Production -->
+  <section class="slide">
+    <p class="eyebrow">08 · Production</p>
+    <h2>A forecast ships every day at 17:00 UTC — untouched by humans</h2>
+    <p class="sub">GitHub Actions runs the real pipeline against the live APIs and opens a pull request
+      on the leaderboard. Guards fail the run rather than submit something wrong.</p>
+    <div class="body-wrap"><div class="cols">
+      <ul class="tight">
+        <li><strong>Fetch fresh:</strong> <span class="code">DOWNLOAD_END</span> = today; then a freshness
+          gate asserts the newest actual is less than an hour old — stale data aborts the run.</li>
+        <li><strong>Pin the origin:</strong> the fold set collapses to exactly one fold anchored at the
+          freshest actual, with a 48 h horizon so the block safely covers all of tomorrow.</li>
+        <li><strong>Train → predict → validate:</strong> one model, one forecast; the submission slice must
+          be exactly 24 rows, NaN-free, finite, strictly positive — or it raises (CR-3).</li>
+        <li><strong>Submit as a PR</strong> from the team's fork to the upstream leaderboard repo.</li>
+      </ul>
+      <div class="stack">
+        <div class="card"><h3>Least-privilege submission</h3>
+          <p>The fork is deliberately <em>never synced</em> from upstream: upstream's workflow files would
+             require the <span class="code">workflow</span> token scope. Branching off the fork's own main
+             keeps the token minimal — GitHub does the cross-fork merge server-side.</p></div>
+        <div class="card"><h3>Cache on a fingerprint</h3>
+          <p>Download hashes its config inputs (window, zone, coordinates…) into a fingerprint file;
+             re-runs with an unchanged fingerprint skip the API calls entirely.
+             Any config change invalidates the cache — stale reuse is impossible.</p></div>
       </div>
-    </section>
+    </div></div>
+  </section>
 
-    <!-- Data -->
-    <section class="slide">
-      <p class="eyebrow">02 · The data</p>
-      <h2>Three sources, one canonical hourly-UTC grid</h2>
-      <div class="body-wrap">
-        <div class="cols">
-          <div class="stack">
-            <div class="card">
-              <h3>ENTSO-E — actual load <span class="pill">load_mw</span></h3>
-              <p>The target. 15-minute Europe/Berlin readings, Jan 2022 → Apr 2026, resampled to hourly UTC. 37,944
-                clean rows.</p>
-            </div>
-            <div class="card">
-              <h3>ENTSO-E — day-ahead forecast <span class="pill">forecast_mw</span></h3>
-              <p>The operator's own published forecast. Never a model input — it is the benchmark to beat.</p>
-            </div>
-            <div class="card">
-              <h3>Open-Meteo — weather <span class="pill">15 columns</span></h3>
-              <p>Temperature, humidity, precipitation, cloud cover, wind, pressure… for a Frankfurt reference point.
-                Archive for history, forecast endpoint for the future hours the model must predict into. No API key.</p>
-            </div>
-          </div>
-          <ul class="tight">
-            <li><strong>Cleaning is conservative and loud:</strong> IQR outlier bounds (multiplier 3.0) —
-              chosen over the library's IsolationForest because IQR is deterministic (CR-2).</li>
-            <li><strong>Gaps ≤ 3 h</strong> are linearly interpolated; anything longer <em>raises</em> —
-              the surrounding window is rejected rather than fabricated (CR-3).</li>
-            <li><strong>"Load is the spine":</strong> cleaned load defines the timestamp grid.
-              A gap in load is fatal; DAF and weather gaps are soft-dropped with a warning.</li>
-            <li><strong>Asymmetric trim:</strong> DAF is reindexed onto the load grid (it exists to be compared
-              with actuals) — but weather keeps its <em>forecast tail beyond the last actual</em>, because
-              predicting tomorrow needs tomorrow's weather.</li>
-          </ul>
-        </div>
+  <!-- 10 · War stories -->
+  <section class="slide">
+    <p class="eyebrow">09 · Two production incidents</p>
+    <h2>Both caught by design, not by luck</h2>
+    <div class="body-wrap"><div class="cols">
+      <div class="card">
+        <h3>The vanished weather tail <span class="pill">PR #28</span></h3>
+        <p>Daily run #12 died: <em>"Exog matrix has 720 NaN values"</em> — 48 hours × 15 weather columns.
+           A merge refactor had trimmed weather to the load's time range, deleting the <em>future</em>
+           weather the forecast needs (in production the entire forecast window lies past the last actual).
+           The e2e test missed it because its window sat inside the load range.<br><br>
+           <strong>Fix:</strong> trim weather only at the start, keep the forecast tail.
+           <strong>Lesson:</strong> DAF and weather need opposite alignment rules — now an explicit,
+           tested asymmetry.</p>
       </div>
-    </section>
-
-    <!-- 5 · Architecture -->
-    <section class="slide">
-      <p class="eyebrow">03 · Architecture</p>
-      <h2>Seven stages that only talk through Parquet</h2>
-      <p class="sub">Each stage is independently runnable, testable, and auditable. No stage calls another in
-        memory — state flows through files, via one storage abstraction.</p>
-      <div class="body-wrap">
-        <div class="pipe">
-          <div class="stage">
-            <div class="n">download</div>
-            <div class="d">ENTSO-E + Open-Meteo → raw parquet (cached on a config fingerprint)</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="stage">
-            <div class="n">merge</div>
-            <div class="d">clean spine, align DAF + weather to hourly UTC</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="stage">
-            <div class="n">train</div>
-            <div class="d">one LightGBM model per rolling-origin fold</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="stage">
-            <div class="n">predict</div>
-            <div class="d">one forecast block per fold</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="stage">
-            <div class="n">evaluate</div>
-            <div class="d">score realized folds vs 2 benchmarks</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="stage">
-            <div class="n">visualise</div>
-            <div class="d">Plotly / Matplotlib backends</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="stage">
-            <div class="n">format-submission</div>
-            <div class="d">pick the covering fold → leaderboard CSV</div>
-          </div>
-        </div>
-        <div class="cols" style="margin-top:26px">
-          <div class="card">
-            <h3>Seam 1 — <span class="code">DataStore</span></h3>
-            <p>Two methods: <span class="code">read(name)</span> / <span class="code">write(name, df)</span>.
-              All pipeline I/O funnels through it — storage is swappable and every access is one auditable chokepoint.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Seam 2 — <span class="code">DataSource</span></h3>
-            <p>Where <span class="code">download</span> gets raw frames: the live APIs in production, or seeded
-              offline fixtures in CI. The stage can't tell the difference — so the whole pipeline runs
-              end-to-end in CI with no network and no key.</p>
-          </div>
-        </div>
+      <div class="card">
+        <h3>The wind outage <span class="pill">PRs #44 · #45</span></h3>
+        <p>In July 2026, Open-Meteo's archive stopped serving 10 m wind. Because missing data
+           <em>raises</em> instead of imputing (CR-3), the pipeline failed loudly rather than silently
+           training on NaNs.<br><br>
+           <strong>Fix:</strong> a two-line, dated change dropping the wind columns — reverted two lines
+           when the archive recovered eight days later.
+           <strong>Lesson:</strong> fail-safe + one source of truth for the column list turns an upstream
+           outage into a trivially reviewable patch.</p>
       </div>
-    </section>
+    </div></div>
+  </section>
 
-    <!-- 6 · Model -->
-    <section class="slide">
-      <p class="eyebrow">04 · The model</p>
-      <h2>Gradient-boosted trees, applied recursively</h2>
-      <div class="body-wrap">
-        <div class="cols">
-          <ul class="tight">
-            <li><strong>Estimator:</strong> <span class="code">LGBMRegressor</span> inside
-              <span class="code">ForecasterRecursive</span> from <span class="code">spotforecast2-safe</span> —
-              predicts hour t+1, feeds it back as input for t+2, … out to the horizon.
-            </li>
-            <li><strong>Autoregression:</strong> <span class="code">lags=168</span> — the previous full week
-              of hourly load as features. Load is dominated by daily and weekly rhythm.</li>
-            <li><strong>Determinism flags (CR-2):</strong> <span class="code">random_state=42</span>,
-              <span class="code">deterministic=True</span>, <span class="code">force_col_wise=True</span> —
-              retraining on identical data reproduces the identical model.
-            </li>
-            <li><strong>Deliberately not done (yet):</strong> hyperparameter tuning, prediction intervals,
-              SHAP attribution — documented as open limitations in the model card, not quietly skipped.</li>
-          </ul>
-          <div class="stack">
-            <div class="card">
-              <h3>40 exogenous features per hour</h3>
-              <p><strong>Calendar (25):</strong> smooth RBF encodings of hour (10), weekday (7), month (6) —
-                so 23:00 sits mathematically next to 00:00 — plus German holiday and weekend flags.<br><br>
-                <strong>Weather (15):</strong> the Open-Meteo columns, joined on the hourly index.
-                Any NaN in the joined matrix raises (CR-3).
-              </p>
-            </div>
-            <div class="card">
-              <h3>Why not the library's all-in-one model class?</h3>
-              <p><span class="code">ForecasterRecursiveModel</span> does its own data loading — it would bypass
-                the <span class="code">DataStore</span> audit seam. The project uses the lower-level
-                fit/predict pieces instead.</p>
-            </div>
-          </div>
-        </div>
+  <!-- 11 · Timeline -->
+  <section class="slide">
+    <p class="eyebrow">10 · How it was built</p>
+    <h2>44 commits, eight phases, May → July 2026</h2>
+    <div class="body-wrap"><div class="tbl-scroll"><table>
+      <tr><th>Phase</th><th>What landed</th><th>Why</th></tr>
+      <tr><td>1 · Milestone 1</td><td>Full download → evaluate skeleton, CLI, config, synthetic seed data</td><td>A working end-to-end backbone before any sophistication</td></tr>
+      <tr><td>2 · CI hardening</td><td>Parallel lint/typecheck/test jobs, coverage gate, SHA-pinned actions, offline smoke test</td><td>Reproducible, supply-chain-safe checks on every PR</td></tr>
+      <tr><td>3 · Weather</td><td>Open-Meteo fetch, merge integration, 40-column exog matrix, forecast-weather path</td><td>Real predictive signal beyond autoregression</td></tr>
+      <tr><td>4 · Ergonomics</td><td>Env-var config precedence, auto-format hooks, IDE run configs</td><td>CI overrides via env; frictionless contribution</td></tr>
+      <tr><td>5 · Going live</td><td>Daily-forecast workflow, submission stage, least-privilege fork flow</td><td>From experiment to competing daily system</td></tr>
+      <tr><td>6 · Merge contract</td><td>"Load is the spine" alignment; the weather-tail production fix</td><td>One correctly aligned dataset under everything</td></tr>
+      <tr><td>7 · Compliance</td><td>Fail-safe metrics, fold generator, config cleanup, store robustness</td><td>CR-3 closed at every layer; backtest scaffolding</td></tr>
+      <tr><td>8 · Backtest live</td><td>Folds wired through all stages, half-open intervals, pinned production origin, download cache, model cards, wind-outage handling</td><td>The Art. 9 evaluation protocol made real; ops polish</td></tr>
+    </table></div></div>
+  </section>
+
+  <!-- 12 · What's next -->
+  <section class="slide">
+    <p class="eyebrow">11 · What's next</p>
+    <h2>The known levers, in order</h2>
+    <div class="body-wrap"><div class="cols">
+      <ul class="tight">
+        <li><strong>Run the full 365-fold backtest</strong> — the protocol-grade evaluation over a whole
+          year of origins, replacing the single-day snapshot.</li>
+        <li><strong>Zone-wide weather</strong> — one Frankfurt station currently represents all of
+          DE_LU; multi-station aggregation is the most probable accuracy lever vs the DAF.</li>
+        <li><strong>Hyperparameter tuning</strong> — LightGBM runs library defaults plus determinism
+          flags; nothing has been tuned yet.</li>
+        <li><strong>Prediction intervals</strong> — point forecasts today; operators want uncertainty.</li>
+        <li><strong>Port to water</strong> — the long-term target: consumption forecasting for pump
+          scheduling, on the identical pipeline.</li>
+      </ul>
+      <div class="card">
+        <h3>What this project demonstrates</h3>
+        <p>A regulated-grade forecasting system, not a notebook: deterministic end-to-end, fail-safe at
+           every boundary, evaluated by rolling-origin protocol against the official operator benchmark,
+           documented in model cards — and live, submitting a real forecast every single day.<br><br>
+           <span class="mono" style="color:var(--accent-ink)">ddkast · docs/presentation.html</span></p>
       </div>
-    </section>
+    </div></div>
+  </section>
 
-    <!-- 7 · Backtest -->
-    <section class="slide">
-      <p class="eyebrow">05 · Evaluation protocol</p>
-      <h2>365 rolling origins</h2>
-      <p class="sub">A single train/test split can flatter or damn a forecaster by chance. The protocol here
-        re-runs the whole exercise at 365 evenly spaced daily origins across the final year of data.</p>
-      <div class="body-wrap">
-        <div class="cols">
-          <ul class="tight">
-            <li><strong>One fold = one origin.</strong> Train on <em>everything before</em> the origin
-              (expanding window), forecast the next 24 h as a half-open block
-              <span class="code">[start, end)</span>, score it against the actuals.
-            </li>
-            <li><strong>One model per fold</strong>, persisted under
-              <span class="code">models/folds/&lt;fold_id&gt;/</span> — no leakage between folds is possible
-              by construction.
-            </li>
-            <li><strong>Fold generation is fail-safe:</strong> unsorted index, origins off the hourly grid,
-              a span that doesn't divide evenly, or less than 168 h of history — every case raises with a
-              specific message. Strides are computed in integer nanoseconds (CR-2).</li>
-            <li><strong>Production reuses the machinery:</strong> the daily job pins
-              <span class="code">n_forecasts=1</span> at the freshest actual — the operational forecast is just
-              a one-fold backtest whose block covers tomorrow.
-            </li>
-          </ul>
-          <div class="stack">
-            <div class="card">
-              <h3>Scored against two benchmarks</h3>
-              <p><strong>7-day seasonal naive</strong> — tomorrow 3 pm = last Tuesday 3 pm. The honesty floor:
-                a model that can't beat it has learned nothing.<br><br>
-                <strong>ENTSO-E DAF</strong> — the official operator forecast. The professional ceiling.
-              </p>
-            </div>
-            <div class="card">
-              <h3>Four metrics, one primary</h3>
-              <p><strong>MAE</strong> (primary — robust, in interpretable MW) plus RMSE, MAPE, SMAPE,
-                each aggregated to mean ± std ± median across folds, with skill scores
-                <span class="code">1 − MAE_model / MAE_benchmark</span>.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+</div>
 
-    <!-- 8 · Results -->
-    <section class="slide">
-      <p class="eyebrow">06 · Results</p>
-      <h2>Beats both benchmarks — and our own scoring matches the leaderboard</h2>
-      <p class="sub">Two evaluations tell the same story. Over a full year of backtest and over the live
-        challenge, the model beats the 7-day naive and the ENTSO-E day-ahead forecast — and our
-        challenge-period numbers land within <strong>2.4 %</strong> of the official leaderboard, so the
-        evaluation harness is honest, not flattering.</p>
-      <div class="body-wrap">
-        <div class="dual">
-          <div class="card">
-            <p class="tbl-cap">365-fold backtest <small>· 2 May 2025 → 30 Apr 2026 · archived weather</small></p>
-            <div class="chart" role="img"
-              aria-label="Mean MAE over 364 backtest folds: 7-day naive 2790 MW, ENTSO-E DAF 2022 MW, ddkast model 1468 MW">
-              <div class="crow">
-                <div class="lbl">7-day naive</div>
-                <div class="track baseline">
-                  <div class="bar" style="width:72%"></div>
-                  <div class="bar-val" style="left:calc(72% + 6px)">2,790</div>
-                </div>
-              </div>
-              <div class="crow">
-                <div class="lbl">ENTSO-E DAF</div>
-                <div class="track baseline">
-                  <div class="bar" style="width:52.2%"></div>
-                  <div class="bar-val" style="left:calc(52.2% + 6px)">2,022</div>
-                </div>
-              </div>
-              <div class="crow">
-                <div class="lbl"><strong>ddkast</strong></div>
-                <div class="track baseline">
-                  <div class="bar model" style="width:37.9%"></div>
-                  <div class="bar-val" style="left:calc(37.9% + 6px)">1,468</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <p class="tbl-cap">Live challenge <small>· 40 daily submissions · forecast weather</small></p>
-            <div class="chart" role="img"
-              aria-label="Mean MAE over 40 live challenge days: 7-day naive 2557 MW, ENTSO-E DAF 2123 MW, ddkast model 1716 MW">
-              <div class="crow">
-                <div class="lbl">7-day naive</div>
-                <div class="track baseline">
-                  <div class="bar" style="width:66%"></div>
-                  <div class="bar-val" style="left:calc(66% + 6px)">2,557</div>
-                </div>
-              </div>
-              <div class="crow">
-                <div class="lbl">ENTSO-E DAF</div>
-                <div class="track baseline">
-                  <div class="bar" style="width:54.8%"></div>
-                  <div class="bar-val" style="left:calc(54.8% + 6px)">2,123</div>
-                </div>
-              </div>
-              <div class="crow">
-                <div class="lbl"><strong>ddkast</strong></div>
-                <div class="track baseline">
-                  <div class="bar model" style="width:44.3%"></div>
-                  <div class="bar-val" style="left:calc(44.3% + 6px)">1,716</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="chart-legend">
-          <span><span class="swatch"></span> benchmark</span>
-          <span><span class="swatch model"></span> ddkast model</span>
-          <span>Mean MAE, MW · both charts share one scale · lower is better</span>
-        </div>
-        <p class="tbl-cap" style="margin:4px 0 7px">Do the three evaluations agree? <small>· full metrics · MW</small></p>
-        <div class="tbl-scroll">
-          <table class="reconcile">
-            <tr>
-              <th>Evaluation</th>
-              <th>Window</th>
-              <th>MAE</th>
-              <th>RMSE</th>
-              <th>MAPE</th>
-              <th>vs leaderboard</th>
-            </tr>
-            <tr>
-              <td>Official leaderboard (Bartz)</td>
-              <td>40 submissions · rank 15 / 20</td>
-              <td class="num">1,757</td>
-              <td class="num">2,029</td>
-              <td class="num">3.47 %</td>
-              <td>reference</td>
-            </tr>
-            <tr class="model-row">
-              <td>Our challenge eval</td>
-              <td>same 40 days · forecast weather</td>
-              <td class="num">1,716</td>
-              <td class="num">2,049</td>
-              <td class="num">3.4 %</td>
-              <td><span class="ok">−2.4 %</span> (−41 MW)</td>
-            </tr>
-            <tr>
-              <td>Our 365-fold backtest</td>
-              <td>364 folds · archived weather</td>
-              <td class="num">1,468</td>
-              <td class="num">1,758</td>
-              <td class="num">2.7 %</td>
-              <td>optimistic *</td>
-            </tr>
-          </table>
-        </div>
-        <p class="axis-note" style="margin-top:10px">Our challenge scoring reproduces the leaderboard's MAE to
-          within 41 MW — and our ENTSO-E benchmark (2,123 MW) matches the leaderboard's ENTSO-E score (2,150 MW)
-          too. <em>* The backtest reads <strong>archived</strong> weather; the live run only has <strong>forecast</strong>
-          weather, which is why 1,468 &lt; 1,716.</em></p>
-      </div>
-    </section>
+<div id="nav">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <button id="next" aria-label="Next slide">→</button>
+  <span id="counter">01 / 12</span>
+  <div id="progress"><i style="width:8.3%"></i></div>
+  <span class="hint">← → to navigate</span>
+</div>
 
-    <!-- 9 · Production -->
-    <section class="slide">
-      <p class="eyebrow">07 · Production</p>
-      <h2>A forecast ships fully automated every day at 17:00 UTC</h2>
-      <p class="sub">GitHub Actions runs the real pipeline against the live APIs and opens a pull request
-        on the leaderboard.</p>
-      <div class="body-wrap">
-        <div class="cols">
-          <ul class="tight">
-            <li><strong>Fetch fresh:</strong> <span class="code">DOWNLOAD_END</span> = today; then a freshness
-              gate asserts the newest actual is less than an hour old — stale data aborts the run.</li>
-            <li><strong>Pin the origin:</strong> the fold set collapses to exactly one fold anchored at the
-              freshest actual, with a 48 h horizon so the block safely covers all of tomorrow.</li>
-            <li><strong>Train → predict → validate:</strong> one model, one forecast; the submission slice must
-              be exactly 24 rows, NaN-free, finite, strictly positive — or it raises (CR-3).</li>
-            <li><strong>Submit as a PR</strong> from the team's fork to the upstream leaderboard repo.</li>
-          </ul>
-          <div class="card shot-card">
-            <h3>40 daily forecasts shipped — every scheduled run green</h3>
-            <div class="shot-frame">
-              <img class="shot" src="submission.png" alt="GitHub Actions history: consecutive successful daily-forecast runs on main"
-                onerror="this.outerHTML='&lt;div class=&quot;shot-fallback&quot;&gt;save the submission screenshot as&lt;br&gt;docs/submission.png&lt;/div&gt;'">
-            </div>
-            <p class="shot-cap">A scheduled run trains, predicts, validates the 24-row slice, and opens the
-              leaderboard PR — unattended, in 2–4 minutes.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Rulebook · EU AI Act (moved before war stories) -->
-    <section class="slide">
-      <p class="eyebrow">08 · The constraint that shaped everything</p>
-      <h2>Treated as a high-risk AI system under the EU AI Act</h2>
-      <p class="sub">Load forecasting for critical infrastructure falls under Annex III No. 2. Articles 9–15
-        apply — and were operationalised as four non-negotiable code rules enforced on every module.</p>
-      <div class="body-wrap">
-        <div class="tbl-scroll">
-          <table>
-            <tr>
-              <th>Rule</th>
-              <th>Name</th>
-              <th>What it means in the code</th>
-              <th>AI Act</th>
-            </tr>
-            <tr>
-              <td class="mono">CR-1</td>
-              <td>No dead code</td>
-              <td>Every function and branch is reached by a test or docstring example.</td>
-              <td class="num">Art. 9, 13</td>
-            </tr>
-            <tr>
-              <td class="mono">CR-2</td>
-              <td>Determinism</td>
-              <td>Same input → bit-identical output. Fixed seeds, fixed iteration order, pinned data windows,
-                integer-nanosecond fold strides.</td>
-              <td class="num">Art. 12, 15</td>
-            </tr>
-            <tr>
-              <td class="mono">CR-3</td>
-              <td>Fail-safe processing</td>
-              <td>Invalid input (NaN, wrong dtype, gaps) raises a specific exception — never silently imputed.</td>
-              <td class="num">Art. 10, 15</td>
-            </tr>
-            <tr>
-              <td class="mono">CR-4</td>
-              <td>Minimal attack surface</td>
-              <td>One vetted library (<span class="code">spotforecast2-safe</span>) on the production path; SHA-pinned
-                CI actions; least-privilege tokens.</td>
-              <td class="num">Art. 15</td>
-            </tr>
-          </table>
-        </div>
-        <p class="axis-note" style="margin-top:14px">Plus: all storage behind a <span class="code">DataStore</span>
-          protocol · every run leaves audit
-          artifacts · rolling-origin backtesting instead of a single split (Art. 9) · model cards for transparency (Art.
-          13).</p>
-      </div>
-    </section>
-
-    <!-- War stories -->
-    <section class="slide">
-      <p class="eyebrow">09 · Two production incidents</p>
-      <h2>Real example</h2>
-      <div class="body-wrap">
-        <div class="cols">
-          <div class="card">
-            <h3>The vanished weather tail <span class="pill">PR #28</span></h3>
-            <p>Daily run #12 died: <em>"Exog matrix has 720 NaN values"</em> — 48 hours × 15 weather columns.
-              A merge refactor had trimmed weather to the load's time range, deleting the <em>future</em>
-              weather the forecast needs (in production the entire forecast window lies past the last actual).
-              The e2e test missed it because its window sat inside the load range.<br><br>
-              <strong>Fix:</strong> trim weather only at the start, keep the forecast tail.
-              <strong>Lesson:</strong> DAF and weather need opposite alignment rules — now an explicit,
-              tested asymmetry.
-            </p>
-          </div>
-          <div class="card">
-            <h3>The wind outage <span class="pill">PRs #44 · #45</span></h3>
-            <p>In July 2026, Open-Meteo's archive stopped serving 10 m wind. Because missing data
-              <em>raises</em> instead of imputing (CR-3), the pipeline failed loudly rather than silently
-              training on NaNs.<br><br>
-              <strong>Fix:</strong> a two-line, dated change dropping the wind columns — reverted two lines
-              when the archive recovered eight days later.
-              <strong>Lesson:</strong> fail-safe + one source of truth for the column list turns an upstream
-              outage into a trivially reviewable patch.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 11 · Timeline -->
-    <section class="slide">
-      <p class="eyebrow">10 · How it was built</p>
-      <h2>Workflow, eight phases, May → July 2026</h2>
-      <div class="body-wrap">
-        <div class="tbl-scroll">
-          <table>
-            <tr>
-              <th>Phase</th>
-              <th>What landed</th>
-              <th>Why</th>
-            </tr>
-            <tr>
-              <td>1 · Milestone 1</td>
-              <td>Full download → evaluate skeleton, CLI, config, synthetic seed data</td>
-              <td>A working end-to-end backbone before any sophistication</td>
-            </tr>
-            <tr>
-              <td>2 · CI hardening</td>
-              <td>Parallel lint/typecheck/test jobs, coverage gate, SHA-pinned actions, offline smoke test</td>
-              <td>Reproducible, supply-chain-safe checks on every PR</td>
-            </tr>
-            <tr>
-              <td>3 · Weather</td>
-              <td>Open-Meteo fetch, merge integration, 40-column exog matrix, forecast-weather path</td>
-              <td>Real predictive signal beyond autoregression</td>
-            </tr>
-            <tr>
-              <td>4 · Ergonomics</td>
-              <td>Env-var config precedence, auto-format hooks, IDE run configs</td>
-              <td>CI overrides via env; frictionless contribution</td>
-            </tr>
-            <tr>
-              <td>5 · Going live</td>
-              <td>Daily-forecast workflow, submission stage, least-privilege fork flow</td>
-              <td>From experiment to competing daily system</td>
-            </tr>
-            <tr>
-              <td>6 · Merge contract</td>
-              <td>"Load is the spine" alignment; the weather-tail production fix</td>
-              <td>One correctly aligned dataset under everything</td>
-            </tr>
-            <tr>
-              <td>7 · Compliance</td>
-              <td>Fail-safe metrics, fold generator, config cleanup, store robustness</td>
-              <td>CR-3 closed at every layer; backtest scaffolding</td>
-            </tr>
-            <tr>
-              <td>8 · Backtest live</td>
-              <td>Folds wired through all stages, half-open intervals, pinned production origin, download cache, model
-                cards, wind-outage handling</td>
-              <td>The Art. 9 evaluation protocol made real; ops polish</td>
-            </tr>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- 12 · What's next -->
-    <section class="slide">
-      <p class="eyebrow">11 · What's next</p>
-      <h2>The known levers, in order</h2>
-      <div class="body-wrap">
-        <div class="cols">
-          <ul class="tight">
-            <li><strong>Zone-wide weather</strong> — one Frankfurt station currently represents all of
-              DE_LU; multi-station aggregation is the most probable accuracy lever vs the leaders.</li>
-            <li><strong>Hyperparameter tuning</strong> — LightGBM runs library defaults plus determinism
-              flags; nothing has been tuned yet.</li>
-            <li><strong>Holiday &amp; Monday error tail</strong> — the worst live days are public holidays
-              (Pentecost Monday 6,215 MW, Corpus Christi 4,227 MW) and Mondays; richer holiday/bridge-day
-              features would cut the tail of the daily-MAE distribution.</li>
-            <li><strong>Prediction intervals</strong> — point forecasts today; operators want uncertainty.</li>
-          </ul>
-          <div class="card">
-            <h3>What this project demonstrates</h3>
-            <p>A regulated-grade forecasting system, not a notebook: deterministic end-to-end, fail-safe at
-              every boundary, evaluated by a 364-fold rolling-origin protocol — beating the official
-              ENTSO-E forecast both in backtest and on the live leaderboard — and submitting a real
-              forecast every single day.<br><br>
-              <span class="mono" style="color:var(--accent-ink)">ddkast · docs/presentation.html</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </div>
-
-  <div id="nav">
-    <button id="prev" aria-label="Previous slide">←</button>
-    <button id="next" aria-label="Next slide">→</button>
-    <span id="counter">01 / 12</span>
-    <div id="progress"><i style="width:8.3%"></i></div>
-    <span class="hint">← → to navigate</span>
-  </div>
-
-  <script>
-    const slides = [...document.querySelectorAll('.slide')];
-    let cur = Math.min(Math.max((parseInt(location.hash.slice(1)) || 1) - 1, 0), slides.length - 1);
-    function show(i) {
-      cur = Math.min(Math.max(i, 0), slides.length - 1);
-      slides.forEach((s, k) => s.classList.toggle('active', k === cur));
-      document.getElementById('counter').textContent =
-        String(cur + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0');
-      document.querySelector('#progress i').style.width = ((cur + 1) / slides.length * 100) + '%';
-      history.replaceState(null, '', '#' + (cur + 1));
-    }
-    document.getElementById('prev').onclick = () => show(cur - 1);
-    document.getElementById('next').onclick = () => show(cur + 1);
-    addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(cur + 1); }
-      if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(cur - 1); }
-      if (e.key === 'Home') show(0);
-      if (e.key === 'End') show(slides.length - 1);
-    });
-    show(cur);
-  </script>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let cur = Math.min(Math.max((parseInt(location.hash.slice(1)) || 1) - 1, 0), slides.length - 1);
+  function show(i) {
+    cur = Math.min(Math.max(i, 0), slides.length - 1);
+    slides.forEach((s, k) => s.classList.toggle('active', k === cur));
+    document.getElementById('counter').textContent =
+      String(cur + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0');
+    document.querySelector('#progress i').style.width = ((cur + 1) / slides.length * 100) + '%';
+    history.replaceState(null, '', '#' + (cur + 1));
+  }
+  document.getElementById('prev').onclick = () => show(cur - 1);
+  document.getElementById('next').onclick = () => show(cur + 1);
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(cur + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(cur - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  show(cur);
+</script>
 </body>
-
 </html>
