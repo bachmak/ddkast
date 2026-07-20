@@ -46,7 +46,7 @@ class Config(BaseSettings):
 
     # --- download ---
     download_start: date = date(2022, 1, 1)
-    download_end: date = date(2026, 4, 30)
+    download_end: date = date(2026, 7, 19)
 
     # --- merge / cleaning ---
     outlier_iqr_multiplier: float = 3.0
